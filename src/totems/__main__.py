@@ -56,7 +56,7 @@ def _build_block_content(
         duties = dedupe((user_content.duties or []) + _collect_duties(duty_sources))
     return BlockContent(
         quote=pick_quote(quotes, rng),
-        wisdom=pick_wisdom(wisdom_pool, rng, n=2),
+        wisdom=pick_wisdom(wisdom_pool, rng, n=1),
         duties=duties,
         symbol_path=get_totem_symbol(config_dir=cfg_dir, rng=rng),
     )

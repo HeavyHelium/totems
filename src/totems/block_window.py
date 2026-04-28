@@ -1,8 +1,29 @@
 from __future__ import annotations
 
+import textwrap
 import tkinter as tk
 
 from .content import BlockContent
+
+
+WISDOM_WRAP_CHARS = 70
+
+
+def _wrap_paragraphs(text: str, width: int) -> str:
+    out: list[str] = []
+    for line in text.split("\n"):
+        if not line.strip():
+            out.append("")
+            continue
+        out.append(
+            textwrap.fill(
+                line,
+                width=width,
+                break_long_words=False,
+                break_on_hyphens=False,
+            )
+        )
+    return "\n".join(out)
 
 
 BG = "#f3eadb"
@@ -166,7 +187,7 @@ class BlockWindow:
 
         if self._content.wisdom:
             for w in self._content.wisdom:
-                self._bullet(wisdom_card, w, bg=WISDOM_BG)
+                self._bullet(wisdom_card, _wrap_paragraphs(w, WISDOM_WRAP_CHARS), bg=WISDOM_BG)
         else:
             self._bullet(wisdom_card, "No reminders listed.", bg=WISDOM_BG)
 
@@ -280,11 +301,6 @@ class BlockWindow:
             font=("TkDefaultFont", 16),
         )
         label.pack(side="left", anchor="w", fill="x", expand=True)
-
-        def update_wraplength(event: tk.Event) -> None:
-            label.configure(wraplength=max(180, event.width - 46))
-
-        row.bind("<Configure>", update_wraplength, add="+")
 
     def _format_remaining(self) -> str:
         m, s = divmod(max(0, self._remaining), 60)

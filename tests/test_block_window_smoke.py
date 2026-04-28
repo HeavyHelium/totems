@@ -73,10 +73,11 @@ def test_ritual_entry_stays_visible_with_long_wisdom():
     win.root.destroy()
 
 
-def test_wisdom_text_wraps_to_card_width():
+def test_wisdom_text_is_pre_wrapped_at_fixed_width():
+    long_line = "word " * 40
     bc = BlockContent(
         quote="q",
-        wisdom=["(iii) Agitation (auddhatya, rgod-pa) and dullness (laya, bying-ba)"],
+        wisdom=[long_line.strip()],
         duties=[],
         symbol_path=None,
     )
@@ -90,7 +91,10 @@ def test_wisdom_text_wraps_to_card_width():
         if str(child).endswith("bullet_text")
     ]
     assert bullet_labels
-    assert max(int(label.cget("wraplength")) for label in bullet_labels) > 390
+    wisdom_label = next(
+        label for label in bullet_labels if "word" in str(label.cget("text"))
+    )
+    assert "\n" in wisdom_label.cget("text")
     assert all(label.cget("anchor") == "w" for label in bullet_labels)
     win.root.destroy()
 
