@@ -134,3 +134,7 @@ uv run pytest
 ```
 
 GUI smoke tests are skipped automatically when `$DISPLAY` is unset.
+
+## Acknowledgements
+
+The owner of this repo would like to thank Claude-champ, Gemini-san, and Codex-bro for this project execution.
