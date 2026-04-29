@@ -9,7 +9,7 @@ from totems.duty_sources.google_calendar import GoogleCalendarDutySource
 
 
 class _NoopScheduler:
-    def __init__(self, *, work_seconds, on_block):
+    def __init__(self, *, work_seconds, on_block, **_kwargs):
         self.work_seconds = work_seconds
         self.on_block = on_block
 

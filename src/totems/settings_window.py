@@ -151,13 +151,18 @@ class RecordEditor:
             wraplength=310,
         ).pack(anchor="w", pady=(2, 10))
 
+        list_wrap = tk.Frame(parent, bg=bg)
+        list_wrap.pack(fill="x")
         self._listbox = tk.Listbox(
-            parent,
+            list_wrap,
             height=6,
             exportselection=False,
             activestyle="dotbox",
         )
-        self._listbox.pack(fill="x")
+        list_scroll = tk.Scrollbar(list_wrap, orient="vertical", command=self._listbox.yview)
+        self._listbox.configure(yscrollcommand=list_scroll.set)
+        list_scroll.pack(side="right", fill="y")
+        self._listbox.pack(side="left", fill="both", expand=True)
         self._listbox.bind("<<ListboxSelect>>", lambda _event: self._on_select())
 
         button_row = tk.Frame(parent, bg=bg)
@@ -167,8 +172,13 @@ class RecordEditor:
         tk.Button(button_row, text="Delete", command=self._delete).pack(side="left", padx=5)
         tk.Button(button_row, text="Clear editor", command=self._clear_editor).pack(side="left", padx=5)
 
-        self._text = tk.Text(parent, wrap="word", height=14, undo=True)
-        self._text.pack(fill="both", expand=True)
+        text_wrap = tk.Frame(parent, bg=bg)
+        text_wrap.pack(fill="both", expand=True)
+        self._text = tk.Text(text_wrap, wrap="word", height=14, undo=True)
+        text_scroll = tk.Scrollbar(text_wrap, orient="vertical", command=self._text.yview)
+        self._text.configure(yscrollcommand=text_scroll.set)
+        text_scroll.pack(side="right", fill="y")
+        self._text.pack(side="left", fill="both", expand=True)
         self._text.bind("<<Modified>>", lambda _event: self._on_text_modified())
 
         self._refresh_list()
@@ -357,8 +367,10 @@ class SettingsEditor:
             wraplength=760,
             justify="left",
         ).pack(anchor="w", pady=(2, 8))
+        google_text_wrap = tk.Frame(google_card, bg="#e7f2ed")
+        google_text_wrap.pack(fill="x")
         self._google_urls_text = tk.Text(
-            google_card,
+            google_text_wrap,
             height=4,
             wrap="none",
             undo=True,
@@ -367,11 +379,16 @@ class SettingsEditor:
             highlightthickness=1,
             highlightbackground="#c6ddd3",
         )
+        google_scroll = tk.Scrollbar(
+            google_text_wrap, orient="vertical", command=self._google_urls_text.yview
+        )
+        self._google_urls_text.configure(yscrollcommand=google_scroll.set)
+        google_scroll.pack(side="right", fill="y")
+        self._google_urls_text.pack(side="left", fill="both", expand=True)
         self._google_urls_text.insert("1.0", "\n".join(self._state.config.google_calendar_urls))
         self._google_urls_text.edit_modified(False)
         self._google_urls_text.bind("<<Modified>>", lambda _event: self._on_google_urls_modified())
         self._google_urls_text.bind("<FocusOut>", lambda _event: self._schedule_autosave(delay_ms=100))
-        self._google_urls_text.pack(fill="x")
 
         editors = tk.Frame(outer, bg="#f3eadb")
         editors.pack(fill="both", expand=True)

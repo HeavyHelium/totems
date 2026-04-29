@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import random
 import sys
+import threading
+from collections.abc import Callable
 from pathlib import Path
 
 from .block_window import BlockWindow
@@ -30,6 +32,53 @@ from .content import (
 from .duty_sources import DutySource, make_duty_sources
 from .scheduler import Scheduler
 from .settings_window import run_settings_editor
+
+
+class _RunControls:
+    def __init__(self) -> None:
+        self.paused = False
+
+
+def _start_keyboard_listener(controls: _RunControls) -> Callable[[], None]:
+    if not sys.stdin.isatty():
+        return lambda: None
+
+    import select
+    import termios
+    import tty
+
+    fd = sys.stdin.fileno()
+    try:
+        old_settings = termios.tcgetattr(fd)
+    except termios.error:
+        return lambda: None
+    tty.setcbreak(fd)
+    stop = threading.Event()
+
+    def loop() -> None:
+        while not stop.is_set():
+            try:
+                r, _, _ = select.select([sys.stdin], [], [], 0.2)
+            except (OSError, ValueError):
+                return
+            if r:
+                try:
+                    ch = sys.stdin.read(1)
+                except (OSError, ValueError):
+                    return
+                if ch.lower() == "p":
+                    controls.paused = not controls.paused
+
+    threading.Thread(target=loop, daemon=True).start()
+
+    def cleanup() -> None:
+        stop.set()
+        try:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        except termios.error:
+            pass
+
+    return cleanup
 
 
 def _read_text_or_none(p: Path) -> str | None:
@@ -175,11 +224,34 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     work_seconds = 5 if args.fast else cfg.work_minutes * 60
-    sched = Scheduler(work_seconds=work_seconds, on_block=trigger_block)
+
+    controls = _RunControls()
+
+    def print_countdown(remaining: float) -> None:
+        if controls.paused:
+            msg = "paused (press p to resume)"
+        else:
+            m, s = divmod(int(remaining), 60)
+            msg = f"next block in {m:02d}:{s:02d}"
+        sys.stdout.write(f"\r\x1b[K{msg}")
+        sys.stdout.flush()
+
+    cleanup_keyboard = _start_keyboard_listener(controls)
+    if sys.stdin.isatty() and sys.stdout.isatty():
+        print("totems: press 'p' to pause/resume; Ctrl-C to quit")
+
+    sched = Scheduler(
+        work_seconds=work_seconds,
+        on_block=trigger_block,
+        on_tick=print_countdown if sys.stdout.isatty() else None,
+        is_paused=lambda: controls.paused,
+    )
     try:
         sched.run()
     except KeyboardInterrupt:
         print("\ntotems: bye")
+    finally:
+        cleanup_keyboard()
     return 0
 
 
