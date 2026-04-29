@@ -27,6 +27,10 @@ The default rhythm is 45 minutes of work followed by a 5-minute block. Change
 those intervals in the settings editor or by editing `[timing]` in
 `config.toml`.
 
+While the loop is running, the terminal shows a live countdown to the next
+block (`next block in MM:SS`). Press `p` to pause the cycle (handy for lunch or
+a meeting) and `p` again to resume. `Ctrl-C` quits.
+
 ## Config files
 
 ```
