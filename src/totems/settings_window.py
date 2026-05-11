@@ -302,6 +302,7 @@ class SettingsEditor:
         self.root.configure(bg="#f3eadb")
 
         self._content_mode = tk.StringVar(value=state.config.content_mode)
+        self._timebox_duties = tk.BooleanVar(value=state.config.timebox_duties)
         self._status = tk.StringVar(value=f"Saving to {config_dir}")
         self._autosave_job: str | None = None
 
@@ -328,6 +329,23 @@ class SettingsEditor:
         self._phrase = self._entry_row(config_card, "Ritual phrase", self._state.config.ritual_phrase)
         self._work = self._entry_row(config_card, "Work minutes", str(self._state.config.work_minutes))
         self._block = self._entry_row(config_card, "Block minutes", str(self._state.config.block_minutes))
+        self._timebox_phrase = self._entry_row(
+            config_card,
+            "Timebox phrase",
+            self._state.config.timebox_phrase,
+        )
+
+        timebox_row = tk.Frame(config_card, bg="#fff8ea")
+        timebox_row.pack(fill="x", pady=6)
+        tk.Label(timebox_row, text="Timebox duties", bg="#fff8ea", width=16, anchor="w").pack(side="left")
+        tk.Checkbutton(
+            timebox_row,
+            text="Show one-minute reminders before timed duties",
+            variable=self._timebox_duties,
+            command=self._schedule_autosave,
+            bg="#fff8ea",
+            activebackground="#fff8ea",
+        ).pack(side="left")
 
         mode_row = tk.Frame(config_card, bg="#fff8ea")
         mode_row.pack(fill="x", pady=6)
@@ -472,6 +490,8 @@ class SettingsEditor:
                 block_minutes=_positive_int_from_entry(self._block.get(), "Block minutes"),
                 duty_source_kinds=kinds,
                 google_calendar_urls=google_urls,
+                timebox_duties=self._timebox_duties.get(),
+                timebox_phrase=self._timebox_phrase.get().strip(),
                 content_mode=self._content_mode.get(),
             ),
             quotes=self._quotes.items(),

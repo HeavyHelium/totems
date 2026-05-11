@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
 
@@ -20,6 +20,7 @@ class BlockContent:
     wisdom: list[str]
     duties: list[str]
     symbol_path: Path | None
+    highlighted_duties: frozenset[str] = field(default_factory=frozenset)
 
 
 @dataclass(frozen=True)

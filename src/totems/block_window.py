@@ -37,6 +37,7 @@ RITUAL_BG = "#f7efe3"
 PANEL_DARK = "#d66b3d"
 ACCENT = "#2f6f5e"
 ACCENT_LIGHT = "#d9eadf"
+HIGHLIGHT = "#ffe66d"
 ENTRY_BG = "#fffdf6"
 SHADOW = "#e0d2bf"
 
@@ -187,16 +188,26 @@ class BlockWindow:
 
         if self._content.wisdom:
             for w in self._content.wisdom:
-                self._bullet(wisdom_card, _wrap_paragraphs(w, WISDOM_WRAP_CHARS), bg=WISDOM_BG)
+                self._bullet(
+                    wisdom_card,
+                    _wrap_paragraphs(w, WISDOM_WRAP_CHARS),
+                    bg=WISDOM_BG,
+                    marker_bg=TODAY_BG,
+                )
         else:
-            self._bullet(wisdom_card, "No reminders listed.", bg=WISDOM_BG)
+            self._bullet(wisdom_card, "No reminders listed.", bg=WISDOM_BG, marker_bg=TODAY_BG)
 
         today_card = self._card(sections, bg=TODAY_BG, padx=28, pady=24)
         today_card.pack(side="left", fill="both", expand=True, padx=(12, 0))
         self._card_kicker(today_card, "Today", bg=TODAY_BG, fg=PANEL_DARK)
         if self._content.duties:
             for d in self._content.duties:
-                self._bullet(today_card, d, bg=TODAY_BG)
+                self._bullet(
+                    today_card,
+                    d,
+                    bg=TODAY_BG,
+                    highlighted=d in self._content.highlighted_duties,
+                )
         else:
             self._bullet(today_card, "No agenda items listed.", bg=TODAY_BG)
 
@@ -286,19 +297,32 @@ class BlockWindow:
             img = img.subsample(factor, factor)
         return img
 
-    def _bullet(self, parent: tk.Frame, text: str, *, bg: str) -> None:
+    def _bullet(
+        self,
+        parent: tk.Frame,
+        text: str,
+        *,
+        bg: str,
+        marker_bg: str = ACCENT_LIGHT,
+        highlighted: bool = False,
+    ) -> None:
         row = tk.Frame(parent, bg=bg)
         row.pack(anchor="w", fill="x", pady=4)
-        tk.Label(row, text="", bg=ACCENT_LIGHT, width=2, height=1).pack(side="left", padx=(0, 8))
+        marker_bg = HIGHLIGHT if highlighted else marker_bg
+        text_bg = HIGHLIGHT if highlighted else bg
+        text_fg = INK if highlighted else MUTED
+        tk.Label(row, text="", bg=marker_bg, width=2, height=1).pack(side="left", padx=(0, 8))
         label = tk.Label(
             row,
             name="bullet_text",
             text=text,
-            bg=bg,
-            fg=MUTED,
+            bg=text_bg,
+            fg=text_fg,
             anchor="w",
             justify="left",
             font=("TkDefaultFont", 16),
+            padx=4 if highlighted else 0,
+            pady=2 if highlighted else 0,
         )
         label.pack(side="left", anchor="w", fill="x", expand=True)
 

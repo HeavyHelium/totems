@@ -62,6 +62,26 @@ def test_renders_symbol_and_agenda_placeholders_when_empty():
     win.root.destroy()
 
 
+def test_highlighted_duty_uses_highlighter_color():
+    bc = BlockContent(
+        quote="q",
+        wisdom=[],
+        duties=["09:00 standup"],
+        symbol_path=None,
+        highlighted_duties=frozenset({"09:00 standup"}),
+    )
+    win = BlockWindow(content=bc, ritual_phrase="hello", block_seconds=1)
+    win.root.update()
+
+    duty_label = next(
+        widget
+        for widget in _walk_widgets(win.root)
+        if str(widget).endswith("bullet_text") and widget.cget("text") == "09:00 standup"
+    )
+    assert duty_label.cget("bg") == "#ffe66d"
+    win.root.destroy()
+
+
 def test_ritual_entry_stays_visible_with_long_wisdom():
     wisdom = ["\n".join(f"line {i}" for i in range(40))]
     bc = BlockContent(quote="q", wisdom=wisdom, duties=["d"], symbol_path=None)

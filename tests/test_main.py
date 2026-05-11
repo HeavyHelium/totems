@@ -1,17 +1,29 @@
 from __future__ import annotations
 
 import random
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from totems import __main__ as main_mod
 from totems.config import Config, load_config
-from totems.duty_sources.google_calendar import GoogleCalendarDutySource
+from totems.duty_sources.google_calendar import CalendarEvent, GoogleCalendarDutySource
 
 
 class _NoopScheduler:
     def __init__(self, *, work_seconds, on_block, **_kwargs):
         self.work_seconds = work_seconds
         self.on_block = on_block
+
+    def run(self) -> None:
+        return None
+
+
+class _CapturingTimeboxScheduler:
+    kwargs = None
+
+    def __init__(self, **kwargs):
+        type(self).kwargs = kwargs
 
     def run(self) -> None:
         return None
@@ -89,6 +101,56 @@ def test_main_debug_calendar_errors_without_google_source(monkeypatch, tmp_path,
 
     assert result == 2
     assert "no google_calendar URLs configured" in capsys.readouterr().err
+
+
+def test_main_timebox_duties_uses_timebox_scheduler_for_google_sources(monkeypatch, tmp_path):
+    config_path = _write_config(tmp_path, 'ritual_phrase = "phrase"\n')
+    source = GoogleCalendarDutySource(urls=[], cache_path=tmp_path / "cache.json")
+    monkeypatch.setattr(main_mod, "user_config_dir", lambda: config_path.parent)
+    monkeypatch.setattr(main_mod, "make_duty_sources", lambda cfg, *, config_dir: [source])
+    monkeypatch.setattr(main_mod, "TimeboxScheduler", _CapturingTimeboxScheduler)
+    _CapturingTimeboxScheduler.kwargs = None
+
+    result = main_mod.main(["--timebox-duties", "--timebox-phrase", "done"])
+
+    assert result == 0
+    assert _CapturingTimeboxScheduler.kwargs is not None
+    assert _CapturingTimeboxScheduler.kwargs["calendar_sources"] == [source]
+
+
+def test_main_timebox_duties_can_run_without_google_source(monkeypatch, tmp_path):
+    config_path = _write_config(tmp_path, 'ritual_phrase = "phrase"\n')
+    (config_path.parent / "content.json").write_text(
+        '{"quotes": [], "wisdom": [], "duties": ["09:00 standup"]}',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(main_mod, "user_config_dir", lambda: config_path.parent)
+    monkeypatch.setattr(main_mod, "make_duty_sources", lambda cfg, *, config_dir: [_StaticDutySource(["x"])])
+    monkeypatch.setattr(main_mod, "TimeboxScheduler", _CapturingTimeboxScheduler)
+    _CapturingTimeboxScheduler.kwargs = None
+
+    result = main_mod.main(["--timebox-duties"])
+
+    assert result == 0
+    assert _CapturingTimeboxScheduler.kwargs is not None
+    assert _CapturingTimeboxScheduler.kwargs["calendar_sources"] == []
+    assert _CapturingTimeboxScheduler.kwargs["static_duty_items"] == ["09:00 standup", "x"]
+
+
+def test_main_config_timebox_duties_uses_timebox_scheduler(monkeypatch, tmp_path):
+    config_path = _write_config(
+        tmp_path,
+        'ritual_phrase = "phrase"\n[timebox]\nduties = true\nphrase = "begin"\n',
+    )
+    monkeypatch.setattr(main_mod, "user_config_dir", lambda: config_path.parent)
+    monkeypatch.setattr(main_mod, "make_duty_sources", lambda cfg, *, config_dir: [_StaticDutySource(["09:00 x"])])
+    monkeypatch.setattr(main_mod, "TimeboxScheduler", _CapturingTimeboxScheduler)
+    _CapturingTimeboxScheduler.kwargs = None
+
+    result = main_mod.main([])
+
+    assert result == 0
+    assert _CapturingTimeboxScheduler.kwargs is not None
 
 
 def test_build_block_content_replace_mode_uses_user_pools_only(monkeypatch, tmp_path):
@@ -170,6 +232,27 @@ def test_build_block_content_deduplicates_duties(monkeypatch, tmp_path):
     )
 
     assert content.duties == ["same", "different"]
+
+
+def test_current_static_duty_texts_highlights_items_in_current_hour():
+    now = datetime(2026, 4, 28, 9, 30, tzinfo=ZoneInfo("America/Los_Angeles"))
+
+    assert main_mod._current_static_duty_texts(["09:00 standup", "11:00 lunch"], now=now) == {
+        "09:00 standup"
+    }
+
+
+def test_calendar_event_is_current_uses_event_end_time():
+    now = datetime(2026, 4, 28, 9, 30, tzinfo=ZoneInfo("America/Los_Angeles"))
+    event = CalendarEvent(
+        title="standup",
+        description="",
+        starts_at=datetime(2026, 4, 28, 9, 0, tzinfo=ZoneInfo("America/Los_Angeles")),
+        ends_at=datetime(2026, 4, 28, 9, 45, tzinfo=ZoneInfo("America/Los_Angeles")),
+        all_day=False,
+    )
+
+    assert main_mod._calendar_event_is_current(event, now=now)
 
 
 class _StaticDutySource:

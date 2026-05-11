@@ -4,6 +4,7 @@ import json
 import logging
 import urllib.request
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,26 @@ import recurring_ical_events
 
 
 _log = logging.getLogger("totems.duty_sources.google_calendar")
+
+
+@dataclass(frozen=True)
+class CalendarEvent:
+    title: str
+    description: str
+    starts_at: datetime
+    all_day: bool
+    ends_at: datetime | None = None
+
+    @property
+    def formatted(self) -> str:
+        if self.all_day:
+            return f"all day: {self.title}"
+        return f"{self.starts_at.strftime('%H:%M')} {self.title}"
+
+    @property
+    def identity(self) -> tuple[str, str, str, bool, str]:
+        ends_at = "" if self.ends_at is None else self.ends_at.isoformat()
+        return (self.starts_at.isoformat(), self.title, self.description, self.all_day, ends_at)
 
 
 def _http_get(url: str) -> bytes:
@@ -45,32 +66,70 @@ class GoogleCalendarDutySource:
         now = self._now()
         any_success = False
         seen: set[str] = set()
-        merged: list[str] = []
+        events: list[CalendarEvent] = []
 
         for url in self._urls:
             try:
-                items = extract_today_items(self._fetcher(url), now=now)
+                items = extract_today_events(self._fetcher(url), now=now)
             except Exception as e:
                 _log.warning("google_calendar fetch/parse failed for %s: %s", url, e)
                 continue
             any_success = True
             for item in items:
-                if item not in seen:
-                    seen.add(item)
-                    merged.append(item)
+                if item.formatted not in seen:
+                    seen.add(item.formatted)
+                    events.append(item)
 
         if any_success:
-            self._write_cache(merged)
-            return merged
+            formatted = [event.formatted for event in events]
+            self._write_cache(formatted, events)
+            return formatted
 
         return self._read_cache()
 
-    def _write_cache(self, items: list[str]) -> None:
+    def today_events(self) -> list[CalendarEvent]:
+        if not self._urls:
+            return []
+
+        now = self._now()
+        any_success = False
+        seen: set[tuple[str, str, str, bool]] = set()
+        merged: list[CalendarEvent] = []
+
+        for url in self._urls:
+            try:
+                events = extract_today_events(self._fetcher(url), now=now)
+            except Exception as e:
+                _log.warning("google_calendar fetch/parse failed for %s: %s", url, e)
+                continue
+            any_success = True
+            for event in events:
+                if event.identity not in seen:
+                    seen.add(event.identity)
+                    merged.append(event)
+
+        if any_success:
+            self._write_cache([event.formatted for event in merged], merged)
+            return merged
+
+        return self._read_event_cache()
+
+    def _write_cache(self, items: list[str], events: list[CalendarEvent]) -> None:
         try:
             self.cache_path.parent.mkdir(parents=True, exist_ok=True)
             payload = {
                 "fetched_at": datetime.now(tz=timezone.utc).isoformat(),
                 "items": items,
+                "events": [
+                    {
+                        "title": event.title,
+                        "description": event.description,
+                        "starts_at": event.starts_at.isoformat(),
+                        "ends_at": None if event.ends_at is None else event.ends_at.isoformat(),
+                        "all_day": event.all_day,
+                    }
+                    for event in events
+                ],
             }
             self.cache_path.write_text(json.dumps(payload), encoding="utf-8")
         except OSError as e:
@@ -86,9 +145,57 @@ class GoogleCalendarDutySource:
             return []
         return list(items)
 
+    def _read_event_cache(self) -> list[CalendarEvent]:
+        try:
+            payload = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return []
+        events = payload.get("events")
+        if not isinstance(events, list):
+            return []
+
+        out: list[CalendarEvent] = []
+        for event in events:
+            if not isinstance(event, dict):
+                return []
+            title = event.get("title")
+            description = event.get("description", "")
+            starts_at = event.get("starts_at")
+            ends_at = event.get("ends_at")
+            all_day = event.get("all_day")
+            if (
+                not isinstance(title, str)
+                or not isinstance(description, str)
+                or not isinstance(starts_at, str)
+                or not (ends_at is None or isinstance(ends_at, str))
+                or not isinstance(all_day, bool)
+            ):
+                return []
+            try:
+                parsed_start = datetime.fromisoformat(starts_at)
+                parsed_end = None if ends_at is None else datetime.fromisoformat(ends_at)
+            except ValueError:
+                return []
+            if parsed_start.tzinfo is None or (parsed_end is not None and parsed_end.tzinfo is None):
+                return []
+            out.append(
+                CalendarEvent(
+                    title=title,
+                    description=description,
+                    starts_at=parsed_start,
+                    ends_at=parsed_end,
+                    all_day=all_day,
+                )
+            )
+        return out
+
 
 def extract_today_items(ical_bytes: bytes, *, now: datetime) -> list[str]:
-    """Parse iCal bytes and return today's events as formatted strings.
+    return [event.formatted for event in extract_today_events(ical_bytes, now=now)]
+
+
+def extract_today_events(ical_bytes: bytes, *, now: datetime) -> list[CalendarEvent]:
+    """Parse iCal bytes and return today's event metadata.
 
     "Today" is the calendar day containing the timezone-aware `now`.
     Output is sorted with all-day events first, then timed events by start.
@@ -103,22 +210,21 @@ def extract_today_items(ical_bytes: bytes, *, now: datetime) -> list[str]:
     cal = _drop_events_without_dtstart(icalendar.Calendar.from_ical(ical_bytes))
     events = recurring_ical_events.of(cal, skip_bad_series=True).between(start_of_day, end_of_day)
 
-    all_day: list[str] = []
-    timed: list[tuple[datetime, str]] = []
+    all_day: list[CalendarEvent] = []
+    timed: list[CalendarEvent] = []
 
     for event in events:
-        formatted = _format_event(event, tz)
-        if formatted is None:
+        parsed = _parse_event(event, tz)
+        if parsed is None:
             continue
-        kind, sort_key, text = formatted
-        if kind == "all_day":
-            all_day.append(text)
+        if parsed.all_day:
+            all_day.append(parsed)
         else:
-            timed.append((sort_key, text))
+            timed.append(parsed)
 
-    all_day.sort()
-    timed.sort(key=lambda pair: pair[0])
-    return all_day + [text for _, text in timed]
+    all_day.sort(key=lambda event: event.title)
+    timed.sort(key=lambda event: event.starts_at)
+    return all_day + timed
 
 
 def _drop_events_without_dtstart(cal: icalendar.Calendar) -> icalendar.Calendar:
@@ -130,13 +236,15 @@ def _drop_events_without_dtstart(cal: icalendar.Calendar) -> icalendar.Calendar:
     return cal
 
 
-def _format_event(event: Any, tz: Any) -> tuple[str, datetime, str] | None:
+def _parse_event(event: Any, tz: Any) -> CalendarEvent | None:
     summary = event.get("SUMMARY")
     if summary is None:
         return None
     summary_str = str(summary).strip()
     if not summary_str:
         return None
+    description = event.get("DESCRIPTION")
+    description_str = "" if description is None else str(description).strip()
 
     dtstart = event.get("DTSTART")
     if dtstart is None:
@@ -148,9 +256,36 @@ def _format_event(event: Any, tz: Any) -> tuple[str, datetime, str] | None:
             local_start = raw.replace(tzinfo=tz)
         else:
             local_start = raw.astimezone(tz)
-        return ("timed", local_start, f"{local_start.strftime('%H:%M')} {summary_str}")
+        return CalendarEvent(
+            title=summary_str,
+            description=description_str,
+            starts_at=local_start,
+            ends_at=_event_end(event, tz),
+            all_day=False,
+        )
 
     if isinstance(raw, date):
-        return ("all_day", datetime.min, f"all day: {summary_str}")
+        local_start = datetime.combine(raw, time.min, tzinfo=tz)
+        return CalendarEvent(
+            title=summary_str,
+            description=description_str,
+            starts_at=local_start,
+            ends_at=_event_end(event, tz),
+            all_day=True,
+        )
 
+    return None
+
+
+def _event_end(event: Any, tz: Any) -> datetime | None:
+    dtend = event.get("DTEND")
+    if dtend is None:
+        return None
+    raw = dtend.dt
+    if isinstance(raw, datetime):
+        if raw.tzinfo is None:
+            return raw.replace(tzinfo=tz)
+        return raw.astimezone(tz)
+    if isinstance(raw, date):
+        return datetime.combine(raw, time.min, tzinfo=tz)
     return None

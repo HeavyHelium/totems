@@ -119,6 +119,21 @@ def test_load_config_parses_replace_content_mode(tmp_path):
     assert cfg.content_mode == "replace"
 
 
+def test_load_config_parses_timebox_settings(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text('ritual_phrase = "phrase"\n[timebox]\nduties = true\nphrase = "begin"\n')
+    cfg = load_config(p)
+    assert cfg.timebox_duties is True
+    assert cfg.timebox_phrase == "begin"
+
+
+def test_load_config_rejects_non_bool_timebox_duties(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text('ritual_phrase = "phrase"\n[timebox]\nduties = "yes"\n')
+    with pytest.raises(ConfigError, match="timebox.duties"):
+        load_config(p)
+
+
 def test_load_config_raises_on_invalid_content_mode(tmp_path):
     p = tmp_path / "config.toml"
     p.write_text('ritual_phrase = "phrase"\n[content]\nmode = "append"\n')
@@ -198,10 +213,15 @@ def test_write_config_emits_kinds_and_google_urls(tmp_path):
         ritual_phrase="hello",
         duty_source_kinds=("textfile", "google_calendar"),
         google_calendar_urls=("https://example.com/cal.ics",),
+        timebox_duties=True,
+        timebox_phrase="begin",
     )
     write_config(p, cfg)
     text = p.read_text(encoding="utf-8")
     assert 'kinds = ["textfile", "google_calendar"]' in text
     assert "[duty_source.google_calendar]" in text
     assert 'urls = ["https://example.com/cal.ics"]' in text
+    assert "[timebox]" in text
+    assert "duties = true" in text
+    assert 'phrase = "begin"' in text
     assert load_config(p) == cfg

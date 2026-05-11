@@ -16,6 +16,7 @@ The whole block window - the quote, the wisdom items, today's agenda, the totem 
 uv run totems                  # start the loop
 uv run totems --debug-now      # one immediate block (1-min timer), then exit
 uv run totems --debug-calendar # print today's calendar items, then exit
+uv run totems --timebox-duties # also remind you 1 minute before calendar duties
 uv run totems --fast           # 5-second cycles for testing
 uv run totems --settings       # edit config/content in a GUI
 ```
@@ -30,6 +31,39 @@ those intervals in the settings editor or by editing `[timing]` in
 While the loop is running, the terminal shows a live countdown to the next
 block (`next block in MM:SS`). Press `p` to pause the cycle (handy for lunch or
 a meeting) and `p` again to resume. `Ctrl-C` quits.
+
+To timebox scheduled duties, turn on **Timebox duties** in the settings editor
+or start with:
+
+```sh
+uv run totems --timebox-duties
+```
+
+That keeps the normal 45-minute block loop, and additionally opens a fullscreen
+one-minute reminder before each timed duty starts. Google Calendar events use
+their calendar start time, title, and description. Duties from the editable list
+also trigger reminders when they start with a time, for example:
+
+```text
+09:00 standup
+3pm dentist
+3:30pm call
+```
+
+Multiline duty records use the first line as the timed title and later lines as
+the reminder description. The reminder closes when the minute expires or when
+you type your ritual phrase. To use a different dismissal phrase for these
+reminders:
+
+```sh
+uv run totems --timebox-duties --timebox-phrase "begin"
+```
+
+All-day calendar events still appear in the Today card, but they do not trigger
+timebox reminder windows. When the regular soft-block window opens, any timed
+duty that is current at that moment is highlighted in the Today card. Calendar
+events use their real end time; typed duties are treated as current for one hour
+after their listed start time.
 
 ## Config files
 
@@ -126,6 +160,10 @@ kinds = ["textfile", "google_calendar"]
 urls = [
     "https://calendar.google.com/calendar/ical/.../basic.ics",
 ]
+
+[timebox]
+duties = true
+phrase = ""
 ```
 
 The app fetches each URL once per block, expands recurring events, and falls

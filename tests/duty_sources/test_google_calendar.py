@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from totems.duty_sources.google_calendar import GoogleCalendarDutySource, extract_today_items
+from totems.duty_sources.google_calendar import GoogleCalendarDutySource, extract_today_events, extract_today_items
 
 from ._fixtures import (
     malformed_event,
@@ -26,6 +26,24 @@ def test_extracts_timed_event_today():
         end=datetime(2026, 4, 28, 9, 30, tzinfo=LA),
     )
     assert extract_today_items(cal, now=NOW_LA) == ["09:00 standup"]
+
+
+def test_extracts_timed_event_metadata_for_timeboxing():
+    cal = single_timed_event(
+        title="standup",
+        description="Daily sync",
+        start=datetime(2026, 4, 28, 9, 0, tzinfo=LA),
+        end=datetime(2026, 4, 28, 9, 30, tzinfo=LA),
+    )
+
+    events = extract_today_events(cal, now=NOW_LA)
+
+    assert len(events) == 1
+    assert events[0].title == "standup"
+    assert events[0].description == "Daily sync"
+    assert events[0].starts_at == datetime(2026, 4, 28, 9, 0, tzinfo=LA)
+    assert events[0].ends_at == datetime(2026, 4, 28, 9, 30, tzinfo=LA)
+    assert not events[0].all_day
 
 
 def test_extracts_all_day_event_today():
@@ -157,6 +175,22 @@ def test_today_dedupes_across_urls(tmp_path):
     assert src.today() == ["09:00 standup"]
 
 
+def test_today_events_dedupes_by_event_identity(tmp_path):
+    cal = single_timed_event(
+        title="standup",
+        description="Daily sync",
+        start=datetime(2026, 4, 28, 9, 0, tzinfo=LA),
+        end=datetime(2026, 4, 28, 9, 30, tzinfo=LA),
+    )
+
+    src = _src(["a.ics", "b.ics"], tmp_path / "cache.json", lambda url: cal)
+    events = src.today_events()
+
+    assert len(events) == 1
+    assert events[0].title == "standup"
+    assert events[0].description == "Daily sync"
+
+
 def test_today_writes_cache_on_success(tmp_path):
     cal = single_timed_event(
         title="standup",
@@ -169,6 +203,7 @@ def test_today_writes_cache_on_success(tmp_path):
 
     payload = json.loads(cache.read_text(encoding="utf-8"))
     assert payload["items"] == ["09:00 standup"]
+    assert payload["events"][0]["title"] == "standup"
     assert payload["fetched_at"].endswith("+00:00")
 
 
@@ -189,6 +224,39 @@ def test_today_reads_cache_on_full_failure(tmp_path):
 
     src = _src(["a.ics"], cache, fetcher)
     assert src.today() == ["09:00 stale-standup"]
+
+
+def test_today_events_reads_event_cache_on_full_failure(tmp_path):
+    cache = tmp_path / "cache.json"
+    cache.write_text(
+        json.dumps(
+            {
+                "fetched_at": "2026-04-27T00:00:00+00:00",
+                "items": ["09:00 stale-standup"],
+                "events": [
+                    {
+                        "title": "stale-standup",
+                        "description": "cached",
+                        "starts_at": datetime(2026, 4, 28, 9, 0, tzinfo=LA).isoformat(),
+                        "ends_at": datetime(2026, 4, 28, 9, 30, tzinfo=LA).isoformat(),
+                        "all_day": False,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def fetcher(url):
+        raise OSError("network down")
+
+    src = _src(["a.ics"], cache, fetcher)
+    events = src.today_events()
+
+    assert len(events) == 1
+    assert events[0].title == "stale-standup"
+    assert events[0].description == "cached"
+    assert events[0].ends_at == datetime(2026, 4, 28, 9, 30, tzinfo=LA)
 
 
 def test_today_returns_empty_when_no_cache_and_full_failure(tmp_path):

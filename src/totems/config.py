@@ -29,6 +29,8 @@ class Config:
     block_minutes: int = 5
     duty_source_kinds: tuple[str, ...] = ("textfile",)
     google_calendar_urls: tuple[str, ...] = ()
+    timebox_duties: bool = False
+    timebox_phrase: str = ""
     content_mode: str = "merge"
 
 
@@ -53,10 +55,13 @@ def load_config(path: Path) -> Config:
 
     timing = _optional_table(data, "timing", path)
     duty = _optional_table(data, "duty_source", path)
+    timebox = _optional_table(data, "timebox", path)
     content = _optional_table(data, "content", path)
     duty_source_kinds = _parse_duty_source_kinds(duty, path)
     google = _optional_table(duty, "google_calendar", path)
     google_calendar_urls = _parse_google_calendar_urls(google, path)
+    timebox_duties = _bool_value(timebox.get("duties", False), "timebox.duties", path)
+    timebox_phrase = _string_value(timebox.get("phrase", ""), "timebox.phrase", path).strip()
     content_mode = content.get("mode", "merge")
     if content_mode not in {"merge", "replace"}:
         raise ConfigError(f"{path} has invalid config value: content.mode must be 'merge' or 'replace'")
@@ -67,6 +72,8 @@ def load_config(path: Path) -> Config:
         block_minutes=_positive_int(timing.get("block_minutes", 5), "timing.block_minutes", path),
         duty_source_kinds=duty_source_kinds,
         google_calendar_urls=google_calendar_urls,
+        timebox_duties=timebox_duties,
+        timebox_phrase=timebox_phrase,
         content_mode=content_mode,
     )
 
@@ -81,6 +88,18 @@ def _optional_table(data: dict, key: str, path: Path) -> dict:
 def _positive_int(value: object, key: str, path: Path) -> int:
     if type(value) is not int or value <= 0:
         raise ConfigError(f"{path} has invalid config value: {key} must be a positive integer")
+    return value
+
+
+def _bool_value(value: object, key: str, path: Path) -> bool:
+    if type(value) is not bool:
+        raise ConfigError(f"{path} has invalid config value: {key} must be true or false")
+    return value
+
+
+def _string_value(value: object, key: str, path: Path) -> str:
+    if not isinstance(value, str):
+        raise ConfigError(f"{path} has invalid config value: {key} must be a string")
     return value
 
 
@@ -143,6 +162,10 @@ def write_config(path: Path, cfg: Config) -> None:
         "\n"
         "[duty_source.google_calendar]\n"
         f"urls = {urls_array}\n"
+        "\n"
+        "[timebox]\n"
+        f"duties = {str(cfg.timebox_duties).lower()}\n"
+        f'phrase = "{_toml_escape(cfg.timebox_phrase)}"\n'
         "\n"
         "[content]\n"
         '# "merge" keeps bundled defaults; "replace" uses only your quotes.txt and wisdom.txt.\n'

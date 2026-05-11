@@ -49,6 +49,8 @@ def test_save_settings_state_writes_config_and_content_json(tmp_path):
             block_minutes=5,
             duty_source_kinds=("textfile", "google_calendar"),
             google_calendar_urls=("https://example.com/cal.ics",),
+            timebox_duties=True,
+            timebox_phrase="begin",
             content_mode="replace",
         ),
         quotes=["Q1\nQ1 continuation", "Q2"],
@@ -64,6 +66,8 @@ def test_save_settings_state_writes_config_and_content_json(tmp_path):
     assert loaded.config.block_minutes == 5
     assert loaded.config.duty_source_kinds == ("textfile", "google_calendar")
     assert loaded.config.google_calendar_urls == ("https://example.com/cal.ics",)
+    assert loaded.config.timebox_duties is True
+    assert loaded.config.timebox_phrase == "begin"
     assert loaded.config.content_mode == "replace"
     assert loaded.quotes == ["Q1\nQ1 continuation", "Q2"]
     assert loaded.wisdom == ["W"]
@@ -105,6 +109,9 @@ def test_settings_editor_collect_state_writes_google_urls(tmp_path, monkeypatch)
     )
     editor = SettingsEditor(config_dir=tmp_path, state=state)
     editor._google_urls_text.insert("1.0", "https://example.com/a.ics\nhttps://example.com/b.ics\n")
+    editor._timebox_duties.set(True)
+    editor._timebox_phrase.delete(0, "end")
+    editor._timebox_phrase.insert(0, "begin")
     editor._save()
     editor.root.destroy()
 
@@ -114,3 +121,5 @@ def test_settings_editor_collect_state_writes_google_urls(tmp_path, monkeypatch)
         "https://example.com/b.ics",
     )
     assert saved.duty_source_kinds == ("textfile", "google_calendar")
+    assert saved.timebox_duties is True
+    assert saved.timebox_phrase == "begin"

@@ -37,24 +37,29 @@ def single_timed_event(
     title: str,
     start: datetime,
     end: datetime,
+    description: str = "",
     uid: str = "evt-1",
 ) -> bytes:
+    desc_line = f"DESCRIPTION:{description}\r\n" if description else ""
     body = (
         "BEGIN:VEVENT\r\n"
         f"UID:{uid}\r\n"
         f"SUMMARY:{title}\r\n"
+        f"{desc_line}"
         f"{_dtstart_dtend(start, end)}"
         "END:VEVENT\r\n"
     )
     return _wrap(body)
 
 
-def single_all_day_event(*, title: str, day: date, uid: str = "evt-1") -> bytes:
+def single_all_day_event(*, title: str, day: date, description: str = "", uid: str = "evt-1") -> bytes:
     next_day = date.fromordinal(day.toordinal() + 1)
+    desc_line = f"DESCRIPTION:{description}\r\n" if description else ""
     body = (
         "BEGIN:VEVENT\r\n"
         f"UID:{uid}\r\n"
         f"SUMMARY:{title}\r\n"
+        f"{desc_line}"
         f"DTSTART;VALUE=DATE:{day.strftime('%Y%m%d')}\r\n"
         f"DTEND;VALUE=DATE:{next_day.strftime('%Y%m%d')}\r\n"
         "END:VEVENT\r\n"
@@ -67,13 +72,16 @@ def weekly_recurring_event(
     title: str,
     first_start: datetime,
     first_end: datetime,
+    description: str = "",
     uid: str = "evt-1",
 ) -> bytes:
     weekday_code = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"][first_start.weekday()]
+    desc_line = f"DESCRIPTION:{description}\r\n" if description else ""
     body = (
         "BEGIN:VEVENT\r\n"
         f"UID:{uid}\r\n"
         f"SUMMARY:{title}\r\n"
+        f"{desc_line}"
         f"{_dtstart_dtend(first_start, first_end)}"
         f"RRULE:FREQ=WEEKLY;BYDAY={weekday_code}\r\n"
         "END:VEVENT\r\n"
