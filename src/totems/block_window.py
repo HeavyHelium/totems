@@ -26,6 +26,11 @@ def _wrap_paragraphs(text: str, width: int) -> str:
     return "\n".join(out)
 
 
+def _split_first_line(text: str) -> tuple[str, str]:
+    first, sep, rest = text.partition("\n")
+    return first, rest if sep else ""
+
+
 BG = "#f3eadb"
 INK = "#1f241f"
 MUTED = "#756f65"
@@ -36,10 +41,12 @@ TODAY_BG = "#f9dfca"
 RITUAL_BG = "#f7efe3"
 PANEL_DARK = "#d66b3d"
 ACCENT = "#2f6f5e"
+SYMBOL_PANEL_BG = "#6ca695"
 ACCENT_LIGHT = "#d9eadf"
 HIGHLIGHT = "#ffe66d"
 ENTRY_BG = "#fffdf6"
 SHADOW = "#e0d2bf"
+BULLET_BORDER = "#4a4a46"
 
 
 class BlockWindow:
@@ -248,10 +255,13 @@ class BlockWindow:
         panel = tk.Frame(
             parent,
             name="symbol_panel",
-            bg=ACCENT,
+            bg=SYMBOL_PANEL_BG,
             width=330,
             padx=16,
             pady=16,
+            highlightthickness=1,
+            highlightbackground=SHADOW,
+            highlightcolor=SHADOW,
         )
         panel.pack(side="left", fill="y", padx=(0, 24))
         panel.pack_propagate(False)
@@ -259,7 +269,7 @@ class BlockWindow:
         tk.Label(
             panel,
             text="totem check",
-            bg=ACCENT,
+            bg=SYMBOL_PANEL_BG,
             fg="#fff8ea",
             font=("TkDefaultFont", 14, "bold"),
         ).pack(anchor="w", pady=(0, 14))
@@ -274,14 +284,24 @@ class BlockWindow:
             self._symbol_placeholder(panel, "Totem symbol could not be displayed.")
             return
 
-        tk.Label(panel, image=self._symbol_img, bg=ACCENT).pack(expand=True)
+        image_wrap = tk.Frame(
+            panel,
+            bg=SHADOW,
+            padx=1,
+            pady=1,
+            highlightthickness=1,
+            highlightbackground=SHADOW,
+            highlightcolor=SHADOW,
+        )
+        image_wrap.pack(expand=True)
+        tk.Label(image_wrap, image=self._symbol_img, bg=SYMBOL_PANEL_BG).pack()
 
     def _symbol_placeholder(self, parent: tk.Frame, text: str) -> None:
         tk.Label(
             parent,
             name="symbol_placeholder",
             text=text,
-            bg=ACCENT,
+            bg=SYMBOL_PANEL_BG,
             fg="#fff8ea",
             wraplength=250,
             justify="center",
@@ -308,14 +328,27 @@ class BlockWindow:
     ) -> None:
         row = tk.Frame(parent, bg=bg)
         row.pack(anchor="w", fill="x", pady=4)
+        row.grid_rowconfigure(0, minsize=22)
+        row.grid_columnconfigure(1, weight=1)
         marker_bg = HIGHLIGHT if highlighted else marker_bg
         text_bg = HIGHLIGHT if highlighted else bg
         text_fg = INK if highlighted else MUTED
-        tk.Label(row, text="", bg=marker_bg, width=2, height=1).pack(side="left", padx=(0, 8))
+        first_line, continuation = _split_first_line(text)
+        marker = tk.Frame(
+            row,
+            bg=marker_bg,
+            width=22,
+            height=18,
+            highlightthickness=1,
+            highlightbackground=BULLET_BORDER,
+            highlightcolor=BULLET_BORDER,
+        )
+        marker.grid(row=0, column=0, padx=(0, 8))
+        marker.pack_propagate(False)
         label = tk.Label(
             row,
             name="bullet_text",
-            text=text,
+            text=first_line,
             bg=text_bg,
             fg=text_fg,
             anchor="w",
@@ -324,7 +357,21 @@ class BlockWindow:
             padx=4 if highlighted else 0,
             pady=2 if highlighted else 0,
         )
-        label.pack(side="left", anchor="w", fill="x", expand=True)
+        label.grid(row=0, column=1, sticky="ew")
+        if continuation:
+            continuation_label = tk.Label(
+                row,
+                name="bullet_continuation",
+                text=continuation,
+                bg=text_bg,
+                fg=text_fg,
+                anchor="w",
+                justify="left",
+                font=("TkDefaultFont", 16),
+                padx=4 if highlighted else 0,
+                pady=2 if highlighted else 0,
+            )
+            continuation_label.grid(row=1, column=1, sticky="ew")
 
     def _format_remaining(self) -> str:
         m, s = divmod(max(0, self._remaining), 60)

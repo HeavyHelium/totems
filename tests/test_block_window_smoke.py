@@ -108,11 +108,11 @@ def test_wisdom_text_is_pre_wrapped_at_fixed_width():
     bullet_labels = [
         child
         for child in _walk_widgets(win.root)
-        if str(child).endswith("bullet_text")
+        if str(child).endswith("bullet_text") or str(child).endswith("bullet_continuation")
     ]
     assert bullet_labels
     wisdom_label = next(
-        label for label in bullet_labels if "word" in str(label.cget("text"))
+        label for label in bullet_labels if str(label).endswith("bullet_continuation")
     )
     assert "\n" in wisdom_label.cget("text")
     assert all(label.cget("anchor") == "w" for label in bullet_labels)
