@@ -82,10 +82,10 @@ class GoogleCalendarDutySource:
 
         if any_success:
             formatted = [event.formatted for event in events]
-            self._write_cache(formatted, events)
+            self._write_cache(formatted, events, now=now)
             return formatted
 
-        return self._read_cache()
+        return self._read_cache(now=now)
 
     def today_events(self) -> list[CalendarEvent]:
         if not self._urls:
@@ -109,16 +109,17 @@ class GoogleCalendarDutySource:
                     merged.append(event)
 
         if any_success:
-            self._write_cache([event.formatted for event in merged], merged)
+            self._write_cache([event.formatted for event in merged], merged, now=now)
             return merged
 
-        return self._read_event_cache()
+        return self._read_event_cache(now=now)
 
-    def _write_cache(self, items: list[str], events: list[CalendarEvent]) -> None:
+    def _write_cache(self, items: list[str], events: list[CalendarEvent], *, now: datetime) -> None:
         try:
             self.cache_path.parent.mkdir(parents=True, exist_ok=True)
             payload = {
                 "fetched_at": datetime.now(tz=timezone.utc).isoformat(),
+                "local_date": now.date().isoformat(),
                 "items": items,
                 "events": [
                     {
@@ -135,20 +136,24 @@ class GoogleCalendarDutySource:
         except OSError as e:
             _log.warning("google_calendar cache write failed: %s", e)
 
-    def _read_cache(self) -> list[str]:
+    def _read_cache(self, *, now: datetime) -> list[str]:
         try:
             payload = json.loads(self.cache_path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
+            return []
+        if payload.get("local_date") != now.date().isoformat():
             return []
         items = payload.get("items")
         if not isinstance(items, list) or not all(isinstance(i, str) for i in items):
             return []
         return list(items)
 
-    def _read_event_cache(self) -> list[CalendarEvent]:
+    def _read_event_cache(self, *, now: datetime) -> list[CalendarEvent]:
         try:
             payload = json.loads(self.cache_path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
+            return []
+        if payload.get("local_date") != now.date().isoformat():
             return []
         events = payload.get("events")
         if not isinstance(events, list):
@@ -216,6 +221,8 @@ def extract_today_events(ical_bytes: bytes, *, now: datetime) -> list[CalendarEv
     for event in events:
         parsed = _parse_event(event, tz)
         if parsed is None:
+            continue
+        if not parsed.all_day and parsed.starts_at.date() != now.date():
             continue
         if parsed.all_day:
             all_day.append(parsed)

@@ -11,6 +11,7 @@ from totems.content import (
     load_wisdom_from_items,
     pick_quote,
     pick_wisdom,
+    pick_wisdom_to_fit,
 )
 
 
@@ -123,6 +124,43 @@ def test_pick_wisdom_caps_at_pool_size():
     assert len(picked) == 2
 
 
+def test_pick_wisdom_to_fit_adds_multiple_small_items_without_repeats():
+    wisdom = ["one", "two", "three", "four"]
+    picked = pick_wisdom_to_fit(wisdom, random.Random(1), max_lines=3, wrap_width=70)
+
+    assert len(picked) == 3
+    assert len(set(picked)) == 3
+
+
+def test_pick_wisdom_to_fit_skips_items_that_would_exceed_budget():
+    wisdom = [
+        "short one",
+        "this item is long enough to wrap onto several estimated visual lines",
+        "short two",
+    ]
+    picked = pick_wisdom_to_fit(wisdom, random.Random(1), max_lines=2, wrap_width=24)
+
+    assert len(picked) >= 1
+    assert all(item in wisdom for item in picked)
+    assert sum(_estimated_test_lines(item, width=24) for item in picked) <= 2
+
+
+def test_pick_wisdom_to_fit_keeps_one_large_item_when_first_pick_is_large():
+    wisdom = ["one two three four five six seven eight nine ten"]
+    picked = pick_wisdom_to_fit(wisdom, random.Random(0), max_lines=1, wrap_width=10)
+
+    assert picked == wisdom
+
+
+def test_pick_wisdom_to_fit_default_budget_has_room_after_medium_item():
+    medium = "\n".join(f"line {i}" for i in range(12))
+    wisdom = [medium, "small follow-up"]
+
+    picked = pick_wisdom_to_fit(wisdom, random.Random(0), wrap_width=70)
+
+    assert set(picked) == {medium, "small follow-up"}
+
+
 def test_load_wisdom_includes_faults_and_antidotes_defaults():
     wisdom = load_wisdom(user_text=None)
     assert any("shamatha outline" in item for item in wisdom)
@@ -135,3 +173,25 @@ def test_block_content_is_a_dataclass():
     bc = BlockContent(quote="q", wisdom=["w"], duties=[], symbol_path=None)
     assert bc.quote == "q"
     assert bc.symbol_path is None
+
+
+def _estimated_test_lines(text: str, *, width: int) -> int:
+    import textwrap
+
+    lines = 0
+    for line in text.splitlines() or [""]:
+        if not line.strip():
+            lines += 1
+            continue
+        lines += max(
+            1,
+            len(
+                textwrap.wrap(
+                    line,
+                    width=width,
+                    break_long_words=False,
+                    break_on_hyphens=False,
+                )
+            ),
+        )
+    return lines

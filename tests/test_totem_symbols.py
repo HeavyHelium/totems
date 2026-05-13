@@ -2,6 +2,7 @@ import io
 import random
 from pathlib import Path
 
+from totems import totem_symbols
 from totems.totem_symbols import get_totem_symbol
 
 
@@ -18,7 +19,7 @@ def test_returns_local_image_when_present(tmp_path):
 
 def test_filters_to_image_extensions(tmp_path):
     _touch(tmp_path / "totem_symbols" / "notes.txt")
-    result = get_totem_symbol(config_dir=tmp_path, rng=random.Random(0), urlopen=_fake_urlopen(b"http-bytes"))
+    result = get_totem_symbol(config_dir=tmp_path, rng=random.Random(0), urlopen=_fake_urlopen(_gif_bytes()))
     assert result is not None
     assert result.suffix.lower() == ".gif"
     assert result.name.startswith("symbol-")
@@ -36,10 +37,10 @@ def test_falls_back_to_http_when_local_empty(tmp_path):
     result = get_totem_symbol(
         config_dir=tmp_path,
         rng=random.Random(0),
-        urlopen=_fake_urlopen(b"http-bytes"),
+        urlopen=_fake_urlopen(_gif_bytes()),
     )
     assert result is not None
-    assert result.read_bytes() == b"http-bytes"
+    assert result.read_bytes() == _gif_bytes()
     assert result.parent.name == ".cache"
 
 
@@ -48,39 +49,74 @@ def test_falls_back_to_http_when_only_cache_files_exist(tmp_path):
     result = get_totem_symbol(
         config_dir=tmp_path,
         rng=random.Random(0),
-        urlopen=_fake_urlopen(b"new-bytes"),
+        urlopen=_fake_urlopen(_gif_bytes()),
     )
     assert result is not None
-    assert result.read_bytes() == b"new-bytes"
+    assert result.read_bytes() == _gif_bytes()
 
 
-def test_returns_none_when_local_empty_and_http_fails(tmp_path):
+def test_returns_demo_symbol_when_local_empty_and_http_fails(tmp_path, monkeypatch):
+    demo = tmp_path / "demo.png"
+    _touch(demo, b"png")
+    monkeypatch.setattr(totem_symbols, "DEMO_SYMBOL_PATH", demo)
+
     def _broken_urlopen(url, timeout=None):
         raise OSError("network down")
 
     result = get_totem_symbol(config_dir=tmp_path, rng=random.Random(0), urlopen=_broken_urlopen)
-    assert result is None
+    assert result == demo
 
 
-def test_returns_none_when_http_returns_unsupported_content_type(tmp_path):
+def test_returns_demo_symbol_when_http_returns_unsupported_content_type(tmp_path, monkeypatch):
+    demo = tmp_path / "demo.png"
+    _touch(demo, b"png")
+    monkeypatch.setattr(totem_symbols, "DEMO_SYMBOL_PATH", demo)
+
     result = get_totem_symbol(
         config_dir=tmp_path,
         rng=random.Random(0),
         urlopen=_fake_urlopen(b"<html>no image</html>", content_type="text/html"),
     )
 
-    assert result is None
+    assert result == demo
 
 
-def test_returns_none_when_cache_cannot_be_written(tmp_path):
+def test_returns_demo_symbol_when_http_body_is_not_gif(tmp_path, monkeypatch):
+    demo = tmp_path / "demo.png"
+    _touch(demo, b"png")
+    monkeypatch.setattr(totem_symbols, "DEMO_SYMBOL_PATH", demo)
+
+    result = get_totem_symbol(
+        config_dir=tmp_path,
+        rng=random.Random(0),
+        urlopen=_fake_urlopen(b"not-a-real-gif", content_type="image/gif"),
+    )
+
+    assert result == demo
+
+
+def test_returns_demo_symbol_when_cache_cannot_be_written(tmp_path, monkeypatch):
+    demo = tmp_path / "demo.png"
+    _touch(demo, b"png")
+    monkeypatch.setattr(totem_symbols, "DEMO_SYMBOL_PATH", demo)
     (tmp_path / "totem_symbols").write_text("not a directory")
 
     result = get_totem_symbol(
         config_dir=tmp_path,
         rng=random.Random(0),
-        urlopen=_fake_urlopen(b"http-bytes"),
+        urlopen=_fake_urlopen(_gif_bytes()),
     )
 
+    assert result == demo
+
+
+def test_returns_none_when_demo_symbol_is_missing_and_http_fails(tmp_path, monkeypatch):
+    monkeypatch.setattr(totem_symbols, "DEMO_SYMBOL_PATH", tmp_path / "missing.png")
+
+    def _broken_urlopen(url, timeout=None):
+        raise OSError("network down")
+
+    result = get_totem_symbol(config_dir=tmp_path, rng=random.Random(0), urlopen=_broken_urlopen)
     assert result is None
 
 
@@ -89,6 +125,10 @@ def _fake_urlopen(payload: bytes, content_type: str = "image/gif"):
         return _FakeResponse(payload, content_type)
 
     return _impl
+
+
+def _gif_bytes() -> bytes:
+    return b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!\xf9\x04\x00\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
 
 
 class _FakeResponse(io.BytesIO):

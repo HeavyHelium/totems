@@ -74,7 +74,7 @@ after their listed start time.
 ├── quotes.txt        # one quote per line
 ├── wisdom.txt        # one wisdom reminder per line
 ├── duties.txt        # today's agenda - one item per line
-├── totem_symbols/    # local symbol images (.png, .gif); empty -> cataas.com fallback
+├── totem_symbols/    # local symbol images (.png, .gif); empty -> cat GIF, then bundled demo
 └── .cache/
     └── google_calendar.json   # auto-managed stale-cache fallback
 ```
@@ -168,6 +168,17 @@ phrase = ""
 
 The app fetches each URL once per block, expands recurring events, and falls
 back to `.cache/google_calendar.json` if every calendar fetch fails.
+
+### Totem symbols
+
+The block window chooses a symbol image in this order:
+
+1. A random local `.png` or `.gif` from `~/.config/totems/totem_symbols/`.
+2. A fetched square GIF from cataas.com, cached under `totem_symbols/.cache/`.
+3. The bundled demo totem image from `docs/assets/totem-readme.png`.
+
+The bundled image is used when the cat API is unreachable, returns a non-image
+response, returns bytes that are not a GIF, or the cache cannot be written.
 
 ## Tests
 

@@ -28,7 +28,7 @@ from .content import (
     load_wisdom,
     load_wisdom_from_items,
     pick_quote,
-    pick_wisdom,
+    pick_wisdom_to_fit,
 )
 from .duty_sources import DutySource, make_duty_sources
 from .duty_sources.google_calendar import CalendarEvent, GoogleCalendarDutySource
@@ -112,7 +112,7 @@ def _build_block_content(
         wisdom_pool = load_wisdom_from_items(user_content.wisdom, mode=cfg.content_mode)
     return BlockContent(
         quote=pick_quote(quotes, rng),
-        wisdom=pick_wisdom(wisdom_pool, rng, n=1),
+        wisdom=pick_wisdom_to_fit(wisdom_pool, rng),
         duties=duties,
         symbol_path=get_totem_symbol(config_dir=cfg_dir, rng=rng),
         highlighted_duties=frozenset(highlighted_duties),

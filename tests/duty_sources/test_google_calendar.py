@@ -69,6 +69,15 @@ def test_excludes_yesterday_and_tomorrow():
     assert extract_today_items(cal, now=NOW_LA) == []
 
 
+def test_excludes_timed_event_that_started_yesterday_and_overlaps_today():
+    cal = single_timed_event(
+        title="overnight",
+        start=datetime(2026, 4, 27, 23, 0, tzinfo=LA),
+        end=datetime(2026, 4, 28, 1, 0, tzinfo=LA),
+    )
+    assert extract_today_items(cal, now=NOW_LA) == []
+
+
 def test_recurring_weekly_event_lands_on_today():
     cal = weekly_recurring_event(
         title="weekly review",
@@ -202,6 +211,7 @@ def test_today_writes_cache_on_success(tmp_path):
     src.today()
 
     payload = json.loads(cache.read_text(encoding="utf-8"))
+    assert payload["local_date"] == "2026-04-28"
     assert payload["items"] == ["09:00 standup"]
     assert payload["events"][0]["title"] == "standup"
     assert payload["fetched_at"].endswith("+00:00")
@@ -213,6 +223,7 @@ def test_today_reads_cache_on_full_failure(tmp_path):
         json.dumps(
             {
                 "fetched_at": "2026-04-27T00:00:00+00:00",
+                "local_date": "2026-04-28",
                 "items": ["09:00 stale-standup"],
             }
         ),
@@ -226,12 +237,33 @@ def test_today_reads_cache_on_full_failure(tmp_path):
     assert src.today() == ["09:00 stale-standup"]
 
 
+def test_today_ignores_cache_from_previous_local_date(tmp_path):
+    cache = tmp_path / "cache.json"
+    cache.write_text(
+        json.dumps(
+            {
+                "fetched_at": "2026-04-27T00:00:00+00:00",
+                "local_date": "2026-04-27",
+                "items": ["09:00 yesterday"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def fetcher(url):
+        raise OSError("network down")
+
+    src = _src(["a.ics"], cache, fetcher)
+    assert src.today() == []
+
+
 def test_today_events_reads_event_cache_on_full_failure(tmp_path):
     cache = tmp_path / "cache.json"
     cache.write_text(
         json.dumps(
             {
                 "fetched_at": "2026-04-27T00:00:00+00:00",
+                "local_date": "2026-04-28",
                 "items": ["09:00 stale-standup"],
                 "events": [
                     {

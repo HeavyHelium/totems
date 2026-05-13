@@ -10,6 +10,7 @@ from typing import IO
 
 IMAGE_EXTS = {".png", ".gif"}
 FALLBACK_URL = "https://cataas.com/cat/gif?type=square"
+DEMO_SYMBOL_PATH = Path(__file__).resolve().parents[2] / "docs" / "assets" / "totem-readme.png"
 
 
 UrlOpen = Callable[..., IO[bytes]]
@@ -47,6 +48,16 @@ def _next_cache_path(cache_dir: Path) -> Path:
     return cache_dir / f"symbol-{time.time_ns()}.gif"
 
 
+def _default_symbol_path() -> Path | None:
+    if DEMO_SYMBOL_PATH.is_file():
+        return DEMO_SYMBOL_PATH
+    return None
+
+
+def _is_gif(data: bytes) -> bool:
+    return data.startswith((b"GIF87a", b"GIF89a"))
+
+
 def get_totem_symbol(
     *,
     config_dir: Path,
@@ -62,14 +73,17 @@ def get_totem_symbol(
         with urlopen(FALLBACK_URL, timeout=5) as resp:
             content_type = _response_content_type(resp)
             if content_type and not content_type.startswith("image/gif"):
-                return None
+                return _default_symbol_path()
             data = resp.read()
     except Exception:
-        return None
+        return _default_symbol_path()
+
+    if not _is_gif(data):
+        return _default_symbol_path()
 
     try:
         out = _next_cache_path(symbols_dir / ".cache")
         out.write_bytes(data)
     except OSError:
-        return None
+        return _default_symbol_path()
     return out

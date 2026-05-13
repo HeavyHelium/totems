@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import json
 import random
+import textwrap
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
 
 
 LAST_RESORT_QUOTE = "Take a breath."
+WISDOM_FIT_WRAP_CHARS = 70
+WISDOM_FIT_LINE_BUDGET = 26
 
 
 class ContentError(Exception):
@@ -157,3 +160,43 @@ def pick_wisdom(wisdom: list[str], rng: random.Random, n: int) -> list[str]:
         return []
     n = min(n, len(wisdom))
     return rng.sample(wisdom, n)
+
+
+def pick_wisdom_to_fit(
+    wisdom: list[str],
+    rng: random.Random,
+    *,
+    max_lines: int = WISDOM_FIT_LINE_BUDGET,
+    wrap_width: int = WISDOM_FIT_WRAP_CHARS,
+) -> list[str]:
+    if not wisdom:
+        return []
+
+    candidates = rng.sample(wisdom, len(wisdom))
+    picked: list[str] = []
+    used_lines = 0
+    for candidate in candidates:
+        candidate_lines = _estimated_wrapped_lines(candidate, width=wrap_width)
+        if picked and used_lines + candidate_lines > max_lines:
+            continue
+        picked.append(candidate)
+        used_lines += candidate_lines
+        if used_lines >= max_lines:
+            break
+    return picked
+
+
+def _estimated_wrapped_lines(text: str, *, width: int) -> int:
+    lines = 0
+    for line in text.splitlines() or [""]:
+        if not line.strip():
+            lines += 1
+            continue
+        wrapped = textwrap.wrap(
+            line,
+            width=width,
+            break_long_words=False,
+            break_on_hyphens=False,
+        )
+        lines += max(1, len(wrapped))
+    return lines
