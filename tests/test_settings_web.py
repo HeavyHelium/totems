@@ -25,6 +25,9 @@ def test_settings_html_uses_tabs_and_record_editors():
     assert 'data-content-panel="wisdom"' in SETTINGS_HTML
     assert 'data-content-tab="duties"' in SETTINGS_HTML
     assert 'data-content-panel="duties"' in SETTINGS_HTML
+    assert "--quote-tab" in SETTINGS_HTML
+    assert "--wisdom-tab" in SETTINGS_HTML
+    assert "--duties-tab" in SETTINGS_HTML
     assert 'data-record-editor="quotes"' in SETTINGS_HTML
     assert 'data-record-editor="wisdom"' in SETTINGS_HTML
     assert 'data-record-editor="duties"' in SETTINGS_HTML

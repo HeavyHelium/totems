@@ -313,9 +313,15 @@ SETTINGS_HTML = f"""<!doctype html>
     .highlight {{ background: var(--highlight); padding: 2px 4px; }}
     .subtabs {{ display: flex; gap: 6px; margin: 0 0 12px; border-bottom: 1px solid #d8c8b3; }}
     .subtab {{ background: transparent; color: #756f65; border: 1px solid transparent; border-bottom: 0; padding: 8px 14px; }}
-    .subtab.active {{ background: #fff8ea; color: #2f6f5e; border-color: #d8c8b3; }}
+    .subtab.active {{ color: #1f241f; border-color: #d8c8b3; }}
+    .subtab[data-content-tab="quotes"].active {{ background: var(--quote-tab, #fff4cf); }}
+    .subtab[data-content-tab="wisdom"].active {{ background: var(--wisdom-tab, #e4f0df); }}
+    .subtab[data-content-tab="duties"].active {{ background: var(--duties-tab, #f9dfca); }}
     .content-panel[hidden] {{ display: none; }}
-    .record-card {{ background: #fff8ea; border: 1px solid #e0d2bf; padding: 12px; min-width: 0; }}
+    .record-card {{ border: 1px solid #e0d2bf; padding: 12px; min-width: 0; }}
+    [data-content-panel="quotes"] .record-card {{ background: var(--quote-tab, #fff4cf); }}
+    [data-content-panel="wisdom"] .record-card {{ background: var(--wisdom-tab, #e4f0df); }}
+    [data-content-panel="duties"] .record-card {{ background: var(--duties-tab, #f9dfca); }}
     .record-card h3 {{ margin: 0 0 8px; color: #756f65; font-size: 14px; }}
     .record-layout {{ display: grid; grid-template-columns: minmax(220px, 0.8fr) minmax(360px, 1.4fr); gap: 12px; align-items: stretch; }}
     .record-list {{ min-height: 360px; }}
@@ -603,6 +609,9 @@ SETTINGS_HTML = f"""<!doctype html>
 
     function applyPreview() {{
       const colors = colorsFromForm();
+      document.documentElement.style.setProperty("--quote-tab", colors.quote);
+      document.documentElement.style.setProperty("--wisdom-tab", colors.wisdom);
+      document.documentElement.style.setProperty("--duties-tab", colors.today);
       preview.style.setProperty("--quote", colors.quote);
       preview.style.setProperty("--wisdom", colors.wisdom);
       preview.style.setProperty("--today", colors.today);
