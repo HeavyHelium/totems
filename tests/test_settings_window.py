@@ -151,3 +151,10 @@ def test_settings_editor_collect_state_writes_google_urls(tmp_path, monkeypatch)
     assert saved.timebox_lead_minutes == 4
     assert saved.timebox_reminder_seconds == 15
     assert saved.block_palette.quote == "#111111"
+
+
+def test_color_labels_cover_all_palette_keys():
+    from totems.config import BLOCK_PALETTE_KEYS
+    from totems.settings_window import COLOR_LABELS
+
+    assert set(COLOR_LABELS) == set(BLOCK_PALETTE_KEYS)

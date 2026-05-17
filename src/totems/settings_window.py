@@ -58,10 +58,11 @@ def duty_source_kinds_for_google_urls(kinds: tuple[str, ...], urls: tuple[str, .
 COLOR_LABELS: dict[str, str] = {
     "quote": "Quote",
     "wisdom": "Wisdom",
+    "wisdom_bullet": "Wisdom bullet",
     "today": "Today",
+    "today_bullet": "Today bullet",
     "ritual": "Ritual",
     "totem_panel": "Totem panel",
-    "bullet_marker": "Bullet marker",
     "highlight": "Highlight",
     "border": "Borders",
 }
