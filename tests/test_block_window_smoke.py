@@ -4,6 +4,7 @@ import tkinter as tk
 import pytest
 
 from totems.block_window import BlockWindow
+from totems.config import BlockPalette
 from totems.content import BlockContent
 
 
@@ -79,6 +80,46 @@ def test_highlighted_duty_uses_highlighter_color():
         if str(widget).endswith("bullet_text") and widget.cget("text") == "09:00 standup"
     )
     assert duty_label.cget("bg") == "#ffe66d"
+    win.root.destroy()
+
+
+def test_custom_palette_reaches_block_window_widgets():
+    bc = BlockContent(
+        quote="q",
+        wisdom=["w"],
+        duties=["d"],
+        symbol_path=None,
+        highlighted_duties=frozenset({"d"}),
+    )
+    palette = BlockPalette(
+        quote="#111111",
+        wisdom="#222222",
+        today="#333333",
+        ritual="#444444",
+        totem_panel="#555555",
+        bullet_marker="#666666",
+        highlight="#777777",
+        border="#888888",
+    )
+    win = BlockWindow(content=bc, ritual_phrase="hello", block_seconds=1, palette=palette)
+    win.root.update()
+
+    quote_label = next(
+        widget for widget in _walk_widgets(win.root) if str(widget).endswith("quote_label")
+    )
+    symbol_panel = next(
+        widget for widget in _walk_widgets(win.root) if str(widget).endswith("symbol_panel")
+    )
+    duty_label = next(
+        widget
+        for widget in _walk_widgets(win.root)
+        if str(widget).endswith("bullet_text") and widget.cget("text") == "d"
+    )
+
+    assert quote_label.cget("bg") == "#111111"
+    assert symbol_panel.cget("bg") == "#555555"
+    assert duty_label.cget("bg") == "#777777"
+    assert symbol_panel.cget("highlightbackground") == "#888888"
     win.root.destroy()
 
 

@@ -6,7 +6,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from tkinter import messagebox
 
-from .config import Config, ConfigError, load_config, write_config
+from .config import (
+    BLOCK_PALETTE_KEYS,
+    Config,
+    ConfigError,
+    load_config,
+    parse_block_palette_values,
+    write_config,
+)
 from .content import (
     ContentError,
     UserContent,
@@ -46,6 +53,18 @@ def duty_source_kinds_for_google_urls(kinds: tuple[str, ...], urls: tuple[str, .
     if not out:
         out.append("textfile")
     return tuple(out)
+
+
+COLOR_LABELS: dict[str, str] = {
+    "quote": "Quote",
+    "wisdom": "Wisdom",
+    "today": "Today",
+    "ritual": "Ritual",
+    "totem_panel": "Totem panel",
+    "bullet_marker": "Bullet marker",
+    "highlight": "Highlight",
+    "border": "Borders",
+}
 
 
 def _dedupe_items(items: list[str]) -> list[str]:
@@ -93,6 +112,7 @@ def save_settings_state(config_dir: Path, state: SettingsState) -> None:
         raise ConfigError("ritual phrase must be non-empty")
     if state.config.content_mode not in {"merge", "replace"}:
         raise ConfigError("content mode must be 'merge' or 'replace'")
+    parse_block_palette_values(state.config.block_palette.as_dict())
 
     write_config(config_dir / "config.toml", state.config)
     write_user_content_json(
@@ -168,7 +188,6 @@ class RecordEditor:
         button_row = tk.Frame(parent, bg=bg)
         button_row.pack(fill="x", pady=8)
         tk.Button(button_row, text="Add", command=self._add).pack(side="left", padx=(0, 5))
-        tk.Button(button_row, text="Update", command=self._update).pack(side="left", padx=5)
         tk.Button(button_row, text="Delete", command=self._delete).pack(side="left", padx=5)
         tk.Button(button_row, text="Clear editor", command=self._clear_editor).pack(side="left", padx=5)
 
@@ -217,24 +236,6 @@ class RecordEditor:
         self._items.append(text)
         self._refresh_list()
         self._select(len(self._items) - 1)
-        self._on_change()
-
-    def _update(self) -> None:
-        text = self._current_text()
-        if self._selected_index is None:
-            if text:
-                self._items.append(text)
-                self._selected_index = len(self._items) - 1
-        elif text:
-            self._items[self._selected_index] = text
-        else:
-            del self._items[self._selected_index]
-            self._selected_index = None
-        self._refresh_list()
-        if self._items:
-            self._select(min(self._selected_index or 0, len(self._items) - 1))
-        else:
-            self._replace_editor_text("")
         self._on_change()
 
     def _delete(self) -> None:
@@ -323,7 +324,27 @@ class SettingsEditor:
             font=("TkDefaultFont", 20, "bold"),
         ).pack(anchor="w")
 
-        config_card = self._card(outer, "#fff8ea")
+        scroll_area = tk.Frame(outer, bg="#f3eadb")
+        scroll_area.pack(fill="both", expand=True, pady=(14, 0))
+        canvas = tk.Canvas(scroll_area, bg="#f3eadb", highlightthickness=0)
+        scrollbar = tk.Scrollbar(scroll_area, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        content = tk.Frame(canvas, bg="#f3eadb")
+        content_window = canvas.create_window((0, 0), window=content, anchor="nw")
+
+        def sync_scroll_region(_event=None) -> None:
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def sync_content_width(event) -> None:
+            canvas.itemconfigure(content_window, width=event.width)
+
+        content.bind("<Configure>", sync_scroll_region)
+        canvas.bind("<Configure>", sync_content_width)
+
+        config_card = self._card(content, "#fff8ea")
         config_card.pack(fill="x", pady=(14, 12))
 
         self._phrase = self._entry_row(config_card, "Ritual phrase", self._state.config.ritual_phrase)
@@ -334,13 +355,23 @@ class SettingsEditor:
             "Timebox phrase",
             self._state.config.timebox_phrase,
         )
+        self._timebox_lead = self._entry_row(
+            config_card,
+            "Lead minutes",
+            str(self._state.config.timebox_lead_minutes),
+        )
+        self._timebox_reminder = self._entry_row(
+            config_card,
+            "Reminder seconds",
+            str(self._state.config.timebox_reminder_seconds),
+        )
 
         timebox_row = tk.Frame(config_card, bg="#fff8ea")
         timebox_row.pack(fill="x", pady=6)
         tk.Label(timebox_row, text="Timebox duties", bg="#fff8ea", width=16, anchor="w").pack(side="left")
         tk.Checkbutton(
             timebox_row,
-            text="Show one-minute reminders before timed duties",
+            text="Show reminder windows before timed duties",
             variable=self._timebox_duties,
             command=self._schedule_autosave,
             bg="#fff8ea",
@@ -360,6 +391,8 @@ class SettingsEditor:
                 bg="#fff8ea",
                 activebackground="#fff8ea",
             ).pack(side="left", padx=(0, 16))
+
+        self._color_entries = self._color_editor(config_card)
 
         google_card = tk.Frame(
             config_card,
@@ -408,7 +441,7 @@ class SettingsEditor:
         self._google_urls_text.bind("<<Modified>>", lambda _event: self._on_google_urls_modified())
         self._google_urls_text.bind("<FocusOut>", lambda _event: self._schedule_autosave(delay_ms=100))
 
-        editors = tk.Frame(outer, bg="#f3eadb")
+        editors = tk.Frame(content, bg="#f3eadb")
         editors.pack(fill="both", expand=True)
 
         self._quotes = self._record_card(editors, "Quotes", self._state.quotes, "#fff4cf")
@@ -440,6 +473,52 @@ class SettingsEditor:
         entry.bind("<FocusOut>", lambda _event: self._schedule_autosave(delay_ms=100))
         entry.pack(side="left", fill="x", expand=True)
         return entry
+
+    def _color_editor(self, parent: tk.Frame) -> dict[str, tk.Entry]:
+        color_card = tk.Frame(
+            parent,
+            bg="#f7efe3",
+            padx=14,
+            pady=12,
+            highlightthickness=1,
+            highlightbackground="#e0d2bf",
+        )
+        color_card.pack(fill="x", pady=(12, 2))
+        tk.Label(
+            color_card,
+            text="BLOCK WINDOW COLORS",
+            bg="#f7efe3",
+            fg="#2f6f5e",
+            font=("TkDefaultFont", 12, "bold"),
+        ).pack(anchor="w")
+        tk.Label(
+            color_card,
+            text="Use #RRGGBB hex colors.",
+            bg="#f7efe3",
+            fg="#756f65",
+        ).pack(anchor="w", pady=(2, 8))
+
+        grid = tk.Frame(color_card, bg="#f7efe3")
+        grid.pack(fill="x")
+        entries: dict[str, tk.Entry] = {}
+        palette = self._state.config.block_palette.as_dict()
+        for index, key in enumerate(BLOCK_PALETTE_KEYS):
+            row = index // 4
+            col = (index % 4) * 2
+            tk.Label(
+                grid,
+                text=COLOR_LABELS[key],
+                bg="#f7efe3",
+                width=13,
+                anchor="w",
+            ).grid(row=row, column=col, sticky="w", padx=(0, 4), pady=4)
+            entry = tk.Entry(grid, width=10)
+            entry.insert(0, palette[key])
+            entry.bind("<KeyRelease>", lambda _event: self._schedule_autosave())
+            entry.bind("<FocusOut>", lambda _event: self._schedule_autosave(delay_ms=100))
+            entry.grid(row=row, column=col + 1, sticky="w", padx=(0, 14), pady=4)
+            entries[key] = entry
+        return entries
 
     def _record_card(self, parent: tk.Frame, label: str, items: list[str], bg: str) -> RecordEditor:
         card = self._card(parent, bg)
@@ -483,6 +562,9 @@ class SettingsEditor:
     def _collect_state(self) -> SettingsState:
         google_urls = google_urls_text_to_tuple(self._google_urls_text.get("1.0", "end"))
         kinds = duty_source_kinds_for_google_urls(self._state.config.duty_source_kinds, google_urls)
+        block_palette = parse_block_palette_values(
+            {key: entry.get().strip() for key, entry in self._color_entries.items()}
+        )
         return SettingsState(
             config=Config(
                 ritual_phrase=self._phrase.get().strip(),
@@ -492,7 +574,16 @@ class SettingsEditor:
                 google_calendar_urls=google_urls,
                 timebox_duties=self._timebox_duties.get(),
                 timebox_phrase=self._timebox_phrase.get().strip(),
+                timebox_lead_minutes=_positive_int_from_entry(
+                    self._timebox_lead.get(),
+                    "Lead minutes",
+                ),
+                timebox_reminder_seconds=_positive_int_from_entry(
+                    self._timebox_reminder.get(),
+                    "Reminder seconds",
+                ),
                 content_mode=self._content_mode.get(),
+                block_palette=block_palette,
             ),
             quotes=self._quotes.items(),
             wisdom=self._wisdom.items(),

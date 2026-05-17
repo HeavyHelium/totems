@@ -16,9 +16,10 @@ The whole block window - the quote, the wisdom items, today's agenda, the totem 
 uv run totems                  # start the loop
 uv run totems --debug-now      # one immediate block (1-min timer), then exit
 uv run totems --debug-calendar # print today's calendar items, then exit
-uv run totems --timebox-duties # also remind you 1 minute before calendar duties
+uv run totems --timebox-duties # also remind you before calendar duties
 uv run totems --fast           # 5-second cycles for testing
 uv run totems --settings       # edit config/content in a GUI
+uv run totems --settings-web   # edit config/content in a browser
 ```
 
 First run will prompt for your ritual phrase and write
@@ -40,9 +41,13 @@ uv run totems --timebox-duties
 ```
 
 That keeps the normal 45-minute block loop, and additionally opens a fullscreen
-one-minute reminder before each timed duty starts. Google Calendar events use
-their calendar start time, title, and description. Duties from the editable list
-also trigger reminders when they start with a time, for example:
+reminder before each timed duty starts. The default lead time is 1 minute; set
+**Lead minutes** in settings or `[timebox].lead_minutes` in `config.toml` to
+change it. Reminder windows auto-close after 60 seconds by default; set
+**Reminder seconds** in settings or `[timebox].reminder_seconds` to change that
+duration. Google Calendar events use their calendar start time, title, and
+description. Duties from the editable list also trigger reminders when they start
+with a time, for example:
 
 ```text
 09:00 standup
@@ -51,9 +56,9 @@ also trigger reminders when they start with a time, for example:
 ```
 
 Multiline duty records use the first line as the timed title and later lines as
-the reminder description. The reminder closes when the minute expires or when
-you type your ritual phrase. To use a different dismissal phrase for these
-reminders:
+the reminder description. The reminder closes when the reminder countdown
+expires or when you type your ritual phrase. To use a different dismissal
+phrase for these reminders:
 
 ```sh
 uv run totems --timebox-duties --timebox-phrase "begin"
@@ -87,9 +92,22 @@ Use the settings UI for normal editing:
 uv run totems --settings
 ```
 
-It presents quotes, wisdom, and duties as records. Each record can contain real
-line breaks; add a blank record via the buttons rather than typing JSON escapes
-like `\n`.
+The Tk editor presents quotes, wisdom, and duties as records. Each record can
+contain real line breaks; add a blank record via the buttons rather than typing
+JSON escapes like `\n`.
+
+For a browser-based editor with native color pickers:
+
+```sh
+uv run totems --settings-web
+```
+
+It serves a local-only page on `127.0.0.1`, prints the URL, and writes the same
+`config.toml` and `content.json` files. The browser editor separates timing,
+colors, calendar URLs, and content into tabs. The Content tab has nested tabs
+for quotes, wisdom, and duties, each with a record list and multiline editor.
+Changes autosave after a short pause; the Save button remains as a manual
+fallback.
 
 ```json
 {
@@ -116,6 +134,25 @@ By default, `quotes.txt` and `wisdom.txt` are merged with bundled defaults. To u
 ```toml
 [content]
 mode = "replace"
+```
+
+### Block window colors
+
+Use the settings editor for normal color tuning. It exposes the block-window
+palette as `#RRGGBB` hex values and autosaves valid changes.
+
+You can also edit the same values in `config.toml`:
+
+```toml
+[colors]
+quote = "#fff4cf"
+wisdom = "#e4f0df"
+today = "#f9dfca"
+ritual = "#f7efe3"
+totem_panel = "#6ca695"
+bullet_marker = "#d9eadf"
+highlight = "#ffe66d"
+border = "#e0d2bf"
 ```
 
 ### Connecting Google Calendar
@@ -164,6 +201,8 @@ urls = [
 [timebox]
 duties = true
 phrase = ""
+lead_minutes = 1
+reminder_seconds = 60
 ```
 
 The app fetches each URL once per block, expands recurring events, and falls

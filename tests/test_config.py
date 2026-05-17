@@ -2,7 +2,15 @@ from pathlib import Path
 
 import pytest
 
-from totems.config import Config, ConfigError, load_config, write_config, write_default_config, user_config_dir
+from totems.config import (
+    BlockPalette,
+    Config,
+    ConfigError,
+    load_config,
+    write_config,
+    write_default_config,
+    user_config_dir,
+)
 
 
 def test_user_config_dir_uses_xdg(monkeypatch, tmp_path):
@@ -121,10 +129,63 @@ def test_load_config_parses_replace_content_mode(tmp_path):
 
 def test_load_config_parses_timebox_settings(tmp_path):
     p = tmp_path / "config.toml"
-    p.write_text('ritual_phrase = "phrase"\n[timebox]\nduties = true\nphrase = "begin"\n')
+    p.write_text(
+        'ritual_phrase = "phrase"\n'
+        "[timebox]\n"
+        "duties = true\n"
+        'phrase = "begin"\n'
+        "lead_minutes = 3\n"
+        "reminder_seconds = 15\n"
+    )
     cfg = load_config(p)
     assert cfg.timebox_duties is True
     assert cfg.timebox_phrase == "begin"
+    assert cfg.timebox_lead_minutes == 3
+    assert cfg.timebox_reminder_seconds == 15
+
+
+def test_load_config_rejects_invalid_timebox_lead_minutes(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text('ritual_phrase = "phrase"\n[timebox]\nlead_minutes = 0\n')
+    with pytest.raises(ConfigError, match="timebox.lead_minutes"):
+        load_config(p)
+
+
+def test_load_config_rejects_invalid_timebox_reminder_seconds(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text('ritual_phrase = "phrase"\n[timebox]\nreminder_seconds = 0\n')
+    with pytest.raises(ConfigError, match="timebox.reminder_seconds"):
+        load_config(p)
+
+
+def test_load_config_parses_block_palette_colors(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text(
+        'ritual_phrase = "phrase"\n'
+        "[colors]\n"
+        'quote = "#111111"\n'
+        'today = "#ABCDEF"\n'
+        'highlight = "#fedcba"\n'
+    )
+    cfg = load_config(p)
+    assert cfg.block_palette.quote == "#111111"
+    assert cfg.block_palette.today == "#abcdef"
+    assert cfg.block_palette.highlight == "#fedcba"
+    assert cfg.block_palette.wisdom == "#e4f0df"
+
+
+def test_load_config_rejects_invalid_block_palette_color(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text('ritual_phrase = "phrase"\n[colors]\nquote = "gold"\n')
+    with pytest.raises(ConfigError, match="colors.quote"):
+        load_config(p)
+
+
+def test_load_config_rejects_unknown_block_palette_key(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text('ritual_phrase = "phrase"\n[colors]\nunknown = "#123456"\n')
+    with pytest.raises(ConfigError, match="unknown colors key"):
+        load_config(p)
 
 
 def test_load_config_rejects_non_bool_timebox_duties(tmp_path):
@@ -215,6 +276,9 @@ def test_write_config_emits_kinds_and_google_urls(tmp_path):
         google_calendar_urls=("https://example.com/cal.ics",),
         timebox_duties=True,
         timebox_phrase="begin",
+        timebox_lead_minutes=3,
+        timebox_reminder_seconds=15,
+        block_palette=BlockPalette(quote="#111111", highlight="#222222"),
     )
     write_config(p, cfg)
     text = p.read_text(encoding="utf-8")
@@ -224,4 +288,9 @@ def test_write_config_emits_kinds_and_google_urls(tmp_path):
     assert "[timebox]" in text
     assert "duties = true" in text
     assert 'phrase = "begin"' in text
+    assert "lead_minutes = 3" in text
+    assert "reminder_seconds = 15" in text
+    assert "[colors]" in text
+    assert 'quote = "#111111"' in text
+    assert 'highlight = "#222222"' in text
     assert load_config(p) == cfg

@@ -43,6 +43,7 @@ class TimeboxScheduler:
         tick_seconds: float = 1.0,
         is_paused: Callable[[], bool] | None = None,
         lead_seconds: int = 60,
+        reminder_seconds: int = 60,
         refresh_seconds: int = 60,
     ) -> None:
         self._work_seconds = work_seconds
@@ -57,6 +58,7 @@ class TimeboxScheduler:
         self._tick_seconds = tick_seconds
         self._is_paused = is_paused
         self._lead_seconds = lead_seconds
+        self._reminder_seconds = reminder_seconds
         self._refresh_seconds = refresh_seconds
         self._stopped = False
         self._events: list[TimeboxDuty] = []
@@ -77,7 +79,8 @@ class TimeboxScheduler:
             self._refresh_events()
             duty = self._next_due_duty()
             if duty is not None:
-                remaining = max(1, min(self._lead_seconds, int((duty.starts_at - self._now()).total_seconds())))
+                seconds_until_start = int((duty.starts_at - self._now()).total_seconds())
+                remaining = max(1, min(self._reminder_seconds, seconds_until_start))
                 self._fired.add(duty.identity)
                 self._on_timebox(duty, remaining)
                 continue

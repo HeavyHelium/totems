@@ -34,6 +34,7 @@ from .duty_sources import DutySource, make_duty_sources
 from .duty_sources.google_calendar import CalendarEvent, GoogleCalendarDutySource
 from .scheduler import Scheduler
 from .settings_window import run_settings_editor
+from .settings_web import run_settings_web
 from .timebox import TimeboxDuty, TimeboxScheduler, parse_timeboxed_duty
 from .timebox_window import TimeboxWindow
 
@@ -214,6 +215,11 @@ def main(argv: list[str] | None = None) -> int:
         help="open the graphical settings editor and exit",
     )
     parser.add_argument(
+        "--settings-web",
+        action="store_true",
+        help="serve the browser settings editor on localhost and exit on Ctrl-C",
+    )
+    parser.add_argument(
         "--debug-calendar",
         action="store_true",
         help="fetch configured Google Calendar URLs once, print today's items, and exit",
@@ -221,7 +227,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--timebox-duties",
         action="store_true",
-        help="show a one-minute fullscreen reminder before timed duties",
+        help="show fullscreen reminders before timed duties",
     )
     parser.add_argument(
         "--timebox-phrase",
@@ -232,6 +238,9 @@ def main(argv: list[str] | None = None) -> int:
     cfg_dir = user_config_dir()
     if args.settings:
         run_settings_editor(cfg_dir)
+        return 0
+    if args.settings_web:
+        run_settings_web(cfg_dir)
         return 0
 
     config_path = cfg_dir / "config.toml"
@@ -288,6 +297,7 @@ def main(argv: list[str] | None = None) -> int:
             content=content,
             ritual_phrase=cfg.ritual_phrase,
             block_seconds=block_seconds,
+            palette=cfg.block_palette,
         )
         return win.run()
 
@@ -307,7 +317,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     work_seconds = 5 if args.fast else cfg.work_minutes * 60
-    timebox_lead_seconds = 5 if args.fast else 60
+    timebox_lead_seconds = 5 if args.fast else cfg.timebox_lead_minutes * 60
+    timebox_reminder_seconds = 5 if args.fast else cfg.timebox_reminder_seconds
 
     controls = _RunControls()
 
@@ -335,6 +346,7 @@ def main(argv: list[str] | None = None) -> int:
             on_tick=print_countdown if sys.stdout.isatty() else None,
             is_paused=lambda: controls.paused,
             lead_seconds=timebox_lead_seconds,
+            reminder_seconds=timebox_reminder_seconds,
             refresh_seconds=timebox_lead_seconds,
         )
     else:

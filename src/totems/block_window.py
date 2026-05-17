@@ -3,6 +3,7 @@ from __future__ import annotations
 import textwrap
 import tkinter as tk
 
+from .config import BlockPalette, DEFAULT_BLOCK_PALETTE
 from .content import BlockContent
 
 
@@ -35,18 +36,12 @@ BG = "#f3eadb"
 INK = "#1f241f"
 MUTED = "#756f65"
 PANEL = "#fff8ea"
-QUOTE_BG = "#fff4cf"
-WISDOM_BG = "#e4f0df"
-TODAY_BG = "#f9dfca"
-RITUAL_BG = "#f7efe3"
 PANEL_DARK = "#d66b3d"
 ACCENT = "#2f6f5e"
-SYMBOL_PANEL_BG = "#6ca695"
-ACCENT_LIGHT = "#d9eadf"
-HIGHLIGHT = "#ffe66d"
 ENTRY_BG = "#fffdf6"
-SHADOW = "#e0d2bf"
-BULLET_BORDER = "#4a4a46"
+RITUAL_BG = DEFAULT_BLOCK_PALETTE.ritual
+TODAY_BG = DEFAULT_BLOCK_PALETTE.today
+SHADOW = DEFAULT_BLOCK_PALETTE.border
 
 
 class BlockWindow:
@@ -56,10 +51,12 @@ class BlockWindow:
         content: BlockContent,
         ritual_phrase: str,
         block_seconds: int,
+        palette: BlockPalette = DEFAULT_BLOCK_PALETTE,
     ) -> None:
         self._content = content
         self._phrase = ritual_phrase
         self._remaining = block_seconds
+        self._palette = palette
         self._after_jobs: set[str] = set()
         self._tick_job: str | None = None
         self.reason: str | None = None
@@ -135,12 +132,12 @@ class BlockWindow:
             font=("TkDefaultFont", 14, "bold"),
         ).pack(side="right")
 
-        ritual_card = self._card(outer, bg=RITUAL_BG, padx=18, pady=10)
+        ritual_card = self._card(outer, bg=self._palette.ritual, padx=18, pady=10)
         ritual_card.pack(side="bottom", fill="x")
         tk.Label(
             ritual_card,
             text="Type your ritual phrase to skip early.",
-            bg=RITUAL_BG,
+            bg=self._palette.ritual,
             fg=MUTED,
             font=("TkDefaultFont", 11, "bold"),
         ).pack(anchor="w", pady=(0, 8))
@@ -170,10 +167,10 @@ class BlockWindow:
         right = tk.Frame(body, bg=BG)
         right.pack(side="left", fill="both", expand=True)
 
-        quote_card = self._card(right, bg=QUOTE_BG, padx=34, pady=18)
+        quote_card = self._card(right, bg=self._palette.quote, padx=34, pady=18)
         quote_card.pack(fill="x", pady=(0, 12))
 
-        self._card_kicker(quote_card, "Quote", bg=QUOTE_BG, fg=PANEL_DARK)
+        self._card_kicker(quote_card, "Quote", bg=self._palette.quote, fg=PANEL_DARK)
 
         tk.Label(
             quote_card,
@@ -181,7 +178,7 @@ class BlockWindow:
             text=self._content.quote,
             wraplength=580,
             justify="left",
-            bg=QUOTE_BG,
+            bg=self._palette.quote,
             fg=INK,
             font=("TkDefaultFont", 24, "bold"),
         ).pack(anchor="w", pady=(12, 0))
@@ -189,34 +186,33 @@ class BlockWindow:
         sections = tk.Frame(right, bg=BG)
         sections.pack(fill="both", expand=True)
 
-        wisdom_card = self._card(sections, bg=WISDOM_BG, padx=28, pady=24)
+        wisdom_card = self._card(sections, bg=self._palette.wisdom, padx=28, pady=24)
         wisdom_card.pack(side="left", fill="both", expand=True, padx=(0, 12))
-        self._card_kicker(wisdom_card, "Wisdom", bg=WISDOM_BG, fg=ACCENT)
+        self._card_kicker(wisdom_card, "Wisdom", bg=self._palette.wisdom, fg=ACCENT)
 
         if self._content.wisdom:
             for w in self._content.wisdom:
                 self._bullet(
                     wisdom_card,
                     _wrap_paragraphs(w, WISDOM_WRAP_CHARS),
-                    bg=WISDOM_BG,
-                    marker_bg=TODAY_BG,
+                    bg=self._palette.wisdom,
                 )
         else:
-            self._bullet(wisdom_card, "No reminders listed.", bg=WISDOM_BG, marker_bg=TODAY_BG)
+            self._bullet(wisdom_card, "No reminders listed.", bg=self._palette.wisdom)
 
-        today_card = self._card(sections, bg=TODAY_BG, padx=28, pady=24)
+        today_card = self._card(sections, bg=self._palette.today, padx=28, pady=24)
         today_card.pack(side="left", fill="both", expand=True, padx=(12, 0))
-        self._card_kicker(today_card, "Today", bg=TODAY_BG, fg=PANEL_DARK)
+        self._card_kicker(today_card, "Today", bg=self._palette.today, fg=PANEL_DARK)
         if self._content.duties:
             for d in self._content.duties:
                 self._bullet(
                     today_card,
                     d,
-                    bg=TODAY_BG,
+                    bg=self._palette.today,
                     highlighted=d in self._content.highlighted_duties,
                 )
         else:
-            self._bullet(today_card, "No agenda items listed.", bg=TODAY_BG)
+            self._bullet(today_card, "No agenda items listed.", bg=self._palette.today)
 
     def _card(self, parent: tk.Frame, *, bg: str, padx: int, pady: int) -> tk.Frame:
         card = tk.Frame(
@@ -225,8 +221,8 @@ class BlockWindow:
             padx=padx,
             pady=pady,
             highlightthickness=1,
-            highlightbackground=SHADOW,
-            highlightcolor=SHADOW,
+            highlightbackground=self._palette.border,
+            highlightcolor=self._palette.border,
         )
         return card
 
@@ -255,13 +251,13 @@ class BlockWindow:
         panel = tk.Frame(
             parent,
             name="symbol_panel",
-            bg=SYMBOL_PANEL_BG,
+            bg=self._palette.totem_panel,
             width=330,
             padx=16,
             pady=16,
             highlightthickness=1,
-            highlightbackground=SHADOW,
-            highlightcolor=SHADOW,
+            highlightbackground=self._palette.border,
+            highlightcolor=self._palette.border,
         )
         panel.pack(side="left", fill="y", padx=(0, 24))
         panel.pack_propagate(False)
@@ -269,7 +265,7 @@ class BlockWindow:
         tk.Label(
             panel,
             text="totem check",
-            bg=SYMBOL_PANEL_BG,
+            bg=self._palette.totem_panel,
             fg="#fff8ea",
             font=("TkDefaultFont", 14, "bold"),
         ).pack(anchor="w", pady=(0, 14))
@@ -286,22 +282,22 @@ class BlockWindow:
 
         image_wrap = tk.Frame(
             panel,
-            bg=SHADOW,
+            bg=self._palette.border,
             padx=1,
             pady=1,
             highlightthickness=1,
-            highlightbackground=SHADOW,
-            highlightcolor=SHADOW,
+            highlightbackground=self._palette.border,
+            highlightcolor=self._palette.border,
         )
         image_wrap.pack(expand=True)
-        tk.Label(image_wrap, image=self._symbol_img, bg=SYMBOL_PANEL_BG).pack()
+        tk.Label(image_wrap, image=self._symbol_img, bg=self._palette.totem_panel).pack()
 
     def _symbol_placeholder(self, parent: tk.Frame, text: str) -> None:
         tk.Label(
             parent,
             name="symbol_placeholder",
             text=text,
-            bg=SYMBOL_PANEL_BG,
+            bg=self._palette.totem_panel,
             fg="#fff8ea",
             wraplength=250,
             justify="center",
@@ -323,15 +319,19 @@ class BlockWindow:
         text: str,
         *,
         bg: str,
-        marker_bg: str = ACCENT_LIGHT,
+        marker_bg: str | None = None,
         highlighted: bool = False,
     ) -> None:
         row = tk.Frame(parent, bg=bg)
         row.pack(anchor="w", fill="x", pady=4)
         row.grid_rowconfigure(0, minsize=22)
         row.grid_columnconfigure(1, weight=1)
-        marker_bg = HIGHLIGHT if highlighted else marker_bg
-        text_bg = HIGHLIGHT if highlighted else bg
+        marker_bg = (
+            self._palette.highlight
+            if highlighted
+            else marker_bg or self._palette.bullet_marker
+        )
+        text_bg = self._palette.highlight if highlighted else bg
         text_fg = INK if highlighted else MUTED
         first_line, continuation = _split_first_line(text)
         marker = tk.Frame(
@@ -340,8 +340,8 @@ class BlockWindow:
             width=22,
             height=18,
             highlightthickness=1,
-            highlightbackground=BULLET_BORDER,
-            highlightcolor=BULLET_BORDER,
+            highlightbackground=self._palette.border,
+            highlightcolor=self._palette.border,
         )
         marker.grid(row=0, column=0, padx=(0, 8))
         marker.pack_propagate(False)

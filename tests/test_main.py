@@ -79,6 +79,17 @@ def test_main_settings_opens_editor_and_exits(monkeypatch, tmp_path):
     assert called == [tmp_path]
 
 
+def test_main_settings_web_serves_editor_and_exits(monkeypatch, tmp_path):
+    called = []
+    monkeypatch.setattr(main_mod, "user_config_dir", lambda: tmp_path)
+    monkeypatch.setattr(main_mod, "run_settings_web", lambda cfg_dir: called.append(cfg_dir))
+
+    result = main_mod.main(["--settings-web"])
+
+    assert result == 0
+    assert called == [tmp_path]
+
+
 def test_main_debug_calendar_prints_google_source_items(monkeypatch, tmp_path, capsys):
     config_path = _write_config(tmp_path, 'ritual_phrase = "phrase"\n')
     source = GoogleCalendarDutySource(urls=[], cache_path=tmp_path / "cache.json")
@@ -140,7 +151,12 @@ def test_main_timebox_duties_can_run_without_google_source(monkeypatch, tmp_path
 def test_main_config_timebox_duties_uses_timebox_scheduler(monkeypatch, tmp_path):
     config_path = _write_config(
         tmp_path,
-        'ritual_phrase = "phrase"\n[timebox]\nduties = true\nphrase = "begin"\n',
+        'ritual_phrase = "phrase"\n'
+        "[timebox]\n"
+        "duties = true\n"
+        'phrase = "begin"\n'
+        "lead_minutes = 3\n"
+        "reminder_seconds = 15\n",
     )
     monkeypatch.setattr(main_mod, "user_config_dir", lambda: config_path.parent)
     monkeypatch.setattr(main_mod, "make_duty_sources", lambda cfg, *, config_dir: [_StaticDutySource(["09:00 x"])])
@@ -151,6 +167,9 @@ def test_main_config_timebox_duties_uses_timebox_scheduler(monkeypatch, tmp_path
 
     assert result == 0
     assert _CapturingTimeboxScheduler.kwargs is not None
+    assert _CapturingTimeboxScheduler.kwargs["lead_seconds"] == 180
+    assert _CapturingTimeboxScheduler.kwargs["reminder_seconds"] == 15
+    assert _CapturingTimeboxScheduler.kwargs["refresh_seconds"] == 180
 
 
 def test_build_block_content_replace_mode_uses_user_pools_only(monkeypatch, tmp_path):

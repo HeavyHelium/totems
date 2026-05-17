@@ -1,4 +1,6 @@
-from totems.config import Config
+import pytest
+
+from totems.config import BlockPalette, Config, ConfigError
 from totems.settings_window import (
     SettingsState,
     duty_source_kinds_for_google_urls,
@@ -51,7 +53,10 @@ def test_save_settings_state_writes_config_and_content_json(tmp_path):
             google_calendar_urls=("https://example.com/cal.ics",),
             timebox_duties=True,
             timebox_phrase="begin",
+            timebox_lead_minutes=4,
+            timebox_reminder_seconds=15,
             content_mode="replace",
+            block_palette=BlockPalette(quote="#111111", today="#222222"),
         ),
         quotes=["Q1\nQ1 continuation", "Q2"],
         wisdom=["W"],
@@ -68,7 +73,11 @@ def test_save_settings_state_writes_config_and_content_json(tmp_path):
     assert loaded.config.google_calendar_urls == ("https://example.com/cal.ics",)
     assert loaded.config.timebox_duties is True
     assert loaded.config.timebox_phrase == "begin"
+    assert loaded.config.timebox_lead_minutes == 4
+    assert loaded.config.timebox_reminder_seconds == 15
     assert loaded.config.content_mode == "replace"
+    assert loaded.config.block_palette.quote == "#111111"
+    assert loaded.config.block_palette.today == "#222222"
     assert loaded.quotes == ["Q1\nQ1 continuation", "Q2"]
     assert loaded.wisdom == ["W"]
     assert loaded.duties == ["D"]
@@ -90,10 +99,20 @@ def test_save_settings_state_rejects_empty_phrase(tmp_path):
         raise AssertionError("expected validation error")
 
 
+def test_save_settings_state_rejects_invalid_palette_color(tmp_path):
+    state = SettingsState(
+        config=Config(ritual_phrase="phrase", block_palette=BlockPalette(quote="red")),
+        quotes=[],
+        wisdom=[],
+        duties=[],
+    )
+
+    with pytest.raises(ConfigError, match="colors.quote"):
+        save_settings_state(tmp_path, state)
+
+
 def test_settings_editor_collect_state_writes_google_urls(tmp_path, monkeypatch):
     import os
-
-    import pytest
 
     if not os.environ.get("DISPLAY"):
         pytest.skip("needs an X display")
@@ -112,6 +131,12 @@ def test_settings_editor_collect_state_writes_google_urls(tmp_path, monkeypatch)
     editor._timebox_duties.set(True)
     editor._timebox_phrase.delete(0, "end")
     editor._timebox_phrase.insert(0, "begin")
+    editor._timebox_lead.delete(0, "end")
+    editor._timebox_lead.insert(0, "4")
+    editor._timebox_reminder.delete(0, "end")
+    editor._timebox_reminder.insert(0, "15")
+    editor._color_entries["quote"].delete(0, "end")
+    editor._color_entries["quote"].insert(0, "#111111")
     editor._save()
     editor.root.destroy()
 
@@ -123,3 +148,6 @@ def test_settings_editor_collect_state_writes_google_urls(tmp_path, monkeypatch)
     assert saved.duty_source_kinds == ("textfile", "google_calendar")
     assert saved.timebox_duties is True
     assert saved.timebox_phrase == "begin"
+    assert saved.timebox_lead_minutes == 4
+    assert saved.timebox_reminder_seconds == 15
+    assert saved.block_palette.quote == "#111111"

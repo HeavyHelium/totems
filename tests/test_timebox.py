@@ -69,6 +69,44 @@ def test_timebox_scheduler_triggers_one_minute_before_timed_calendar_duty():
     assert seconds == 60
 
 
+def test_timebox_scheduler_caps_reminder_duration():
+    start = datetime(2026, 4, 28, 9, 0, tzinfo=TZ)
+    clock = _Clock(start - timedelta(seconds=65))
+    source = _Source(
+        [
+            CalendarEvent(
+                title="standup",
+                description="Daily sync",
+                starts_at=start,
+                all_day=False,
+            )
+        ]
+    )
+    reminders: list[tuple[TimeboxDuty, int]] = []
+
+    def on_timebox(duty: TimeboxDuty, seconds: int) -> str:
+        reminders.append((duty, seconds))
+        sched.stop()
+        return "timeout"
+
+    sched = TimeboxScheduler(
+        work_seconds=3600,
+        on_block=lambda: "timeout",
+        calendar_sources=[source],  # type: ignore[list-item]
+        on_timebox=on_timebox,
+        sleep=clock.sleep,
+        now=lambda: clock.wall,
+        monotonic=lambda: clock.mono,
+        tick_seconds=1,
+        lead_seconds=60,
+        reminder_seconds=15,
+    )
+    sched.run()
+
+    assert len(reminders) == 1
+    assert reminders[0][1] == 15
+
+
 def test_timebox_scheduler_skips_all_day_events():
     start = datetime(2026, 4, 28, 9, 0, tzinfo=TZ)
     clock = _Clock(start - timedelta(seconds=65))
