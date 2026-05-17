@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from totems.config import (
+    DEFAULT_BLOCK_PALETTE,
     BlockPalette,
     Config,
     ConfigError,
@@ -294,3 +295,32 @@ def test_write_config_emits_kinds_and_google_urls(tmp_path):
     assert 'quote = "#111111"' in text
     assert 'highlight = "#222222"' in text
     assert load_config(p) == cfg
+
+
+def test_default_block_palette_bullets_are_crossed():
+    palette = DEFAULT_BLOCK_PALETTE
+    assert palette.wisdom_bullet == palette.today
+    assert palette.today_bullet == palette.wisdom
+
+
+def test_load_config_ignores_legacy_bullet_marker_key(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text(
+        'ritual_phrase = "phrase"\n[colors]\nbullet_marker = "#123456"\n'
+    )
+    cfg = load_config(p)
+    assert cfg.block_palette.wisdom_bullet == DEFAULT_BLOCK_PALETTE.wisdom_bullet
+    assert cfg.block_palette.today_bullet == DEFAULT_BLOCK_PALETTE.today_bullet
+
+
+def test_load_config_parses_per_box_bullet_colors(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text(
+        'ritual_phrase = "phrase"\n'
+        "[colors]\n"
+        'wisdom_bullet = "#AAAAAA"\n'
+        'today_bullet = "#BBBBBB"\n'
+    )
+    cfg = load_config(p)
+    assert cfg.block_palette.wisdom_bullet == "#aaaaaa"
+    assert cfg.block_palette.today_bullet == "#bbbbbb"

@@ -12,10 +12,11 @@ COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 BLOCK_PALETTE_KEYS: tuple[str, ...] = (
     "quote",
     "wisdom",
+    "wisdom_bullet",
     "today",
+    "today_bullet",
     "ritual",
     "totem_panel",
-    "bullet_marker",
     "highlight",
     "border",
 )
@@ -38,10 +39,11 @@ def _toml_escape(s: str) -> str:
 class BlockPalette:
     quote: str = "#fff4cf"
     wisdom: str = "#e4f0df"
+    wisdom_bullet: str = "#f9dfca"
     today: str = "#f9dfca"
+    today_bullet: str = "#e4f0df"
     ritual: str = "#f7efe3"
     totem_panel: str = "#6ca695"
-    bullet_marker: str = "#d9eadf"
     highlight: str = "#ffe66d"
     border: str = "#e0d2bf"
 
@@ -196,6 +198,8 @@ def parse_block_palette_values(values: dict[str, object], *, path: Path | None =
 def _parse_block_palette(colors: dict[str, object], path: Path | None) -> BlockPalette:
     out = DEFAULT_BLOCK_PALETTE.as_dict()
     for key, value in colors.items():
+        if key == "bullet_marker":
+            continue  # legacy key, replaced by wisdom_bullet / today_bullet
         if key not in out:
             raise ConfigError(_config_error(path, f"unknown colors key {key!r}"))
         out[key] = _color_value(value, f"colors.{key}", path)
