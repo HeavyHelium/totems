@@ -196,9 +196,15 @@ class BlockWindow:
                     wisdom_card,
                     _wrap_paragraphs(w, WISDOM_WRAP_CHARS),
                     bg=self._palette.wisdom,
+                    marker_bg=self._palette.wisdom_bullet,
                 )
         else:
-            self._bullet(wisdom_card, "No reminders listed.", bg=self._palette.wisdom)
+            self._bullet(
+                wisdom_card,
+                "No reminders listed.",
+                bg=self._palette.wisdom,
+                marker_bg=self._palette.wisdom_bullet,
+            )
 
         today_card = self._card(sections, bg=self._palette.today, padx=28, pady=24)
         today_card.pack(side="left", fill="both", expand=True, padx=(12, 0))
@@ -209,10 +215,16 @@ class BlockWindow:
                     today_card,
                     d,
                     bg=self._palette.today,
+                    marker_bg=self._palette.today_bullet,
                     highlighted=d in self._content.highlighted_duties,
                 )
         else:
-            self._bullet(today_card, "No agenda items listed.", bg=self._palette.today)
+            self._bullet(
+                today_card,
+                "No agenda items listed.",
+                bg=self._palette.today,
+                marker_bg=self._palette.today_bullet,
+            )
 
     def _card(self, parent: tk.Frame, *, bg: str, padx: int, pady: int) -> tk.Frame:
         card = tk.Frame(
@@ -319,23 +331,20 @@ class BlockWindow:
         text: str,
         *,
         bg: str,
-        marker_bg: str | None = None,
+        marker_bg: str,
         highlighted: bool = False,
     ) -> None:
         row = tk.Frame(parent, bg=bg)
         row.pack(anchor="w", fill="x", pady=4)
         row.grid_rowconfigure(0, minsize=22)
         row.grid_columnconfigure(1, weight=1)
-        marker_bg = (
-            self._palette.highlight
-            if highlighted
-            else marker_bg or self._palette.bullet_marker
-        )
+        marker_bg = self._palette.highlight if highlighted else marker_bg
         text_bg = self._palette.highlight if highlighted else bg
         text_fg = INK if highlighted else MUTED
         first_line, continuation = _split_first_line(text)
         marker = tk.Frame(
             row,
+            name="bullet_marker",
             bg=marker_bg,
             width=22,
             height=18,

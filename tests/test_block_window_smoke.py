@@ -80,6 +80,7 @@ def test_highlighted_duty_uses_highlighter_color():
         if str(widget).endswith("bullet_text") and widget.cget("text") == "09:00 standup"
     )
     assert duty_label.cget("bg") == "#ffe66d"
+    assert _marker_beside(win.root, "09:00 standup").cget("bg") == "#ffe66d"
     win.root.destroy()
 
 
@@ -97,7 +98,8 @@ def test_custom_palette_reaches_block_window_widgets():
         today="#333333",
         ritual="#444444",
         totem_panel="#555555",
-        bullet_marker="#666666",
+        wisdom_bullet="#666666",
+        today_bullet="#999999",
         highlight="#777777",
         border="#888888",
     )
@@ -120,6 +122,18 @@ def test_custom_palette_reaches_block_window_widgets():
     assert symbol_panel.cget("bg") == "#555555"
     assert duty_label.cget("bg") == "#777777"
     assert symbol_panel.cget("highlightbackground") == "#888888"
+    win.root.destroy()
+
+
+def test_per_box_bullet_colors_reach_markers():
+    bc = BlockContent(quote="q", wisdom=["w"], duties=["d"], symbol_path=None)
+    palette = BlockPalette(wisdom_bullet="#abcabc", today_bullet="#defdef")
+    win = BlockWindow(content=bc, ritual_phrase="hello", block_seconds=1, palette=palette)
+    win.root.update()
+    win.root.update_idletasks()
+
+    assert _marker_beside(win.root, "w").cget("bg") == "#abcabc"
+    assert _marker_beside(win.root, "d").cget("bg") == "#defdef"
     win.root.destroy()
 
 
@@ -224,6 +238,19 @@ def _walk_widgets(widget: tk.Widget) -> list[tk.Widget]:
     for child in widget.winfo_children():
         out.extend(_walk_widgets(child))
     return out
+
+
+def _marker_beside(root: tk.Widget, label_text: str) -> tk.Widget:
+    label = next(
+        widget
+        for widget in _walk_widgets(root)
+        if str(widget).endswith("bullet_text") and widget.cget("text") == label_text
+    )
+    return next(
+        child
+        for child in label.master.winfo_children()
+        if str(child).endswith("bullet_marker")
+    )
 
 
 def test_wrong_phrase_does_not_dismiss():
