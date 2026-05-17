@@ -147,10 +147,11 @@ You can also edit the same values in `config.toml`:
 [colors]
 quote = "#fff4cf"
 wisdom = "#e4f0df"
+wisdom_bullet = "#f9dfca"
 today = "#f9dfca"
+today_bullet = "#e4f0df"
 ritual = "#f7efe3"
 totem_panel = "#6ca695"
-bullet_marker = "#d9eadf"
 highlight = "#ffe66d"
 border = "#e0d2bf"
 ```
