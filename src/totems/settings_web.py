@@ -309,7 +309,9 @@ SETTINGS_HTML = f"""<!doctype html>
     .preview-wisdom {{ background: var(--wisdom); }}
     .preview-today {{ background: var(--today); }}
     .preview-ritual {{ background: var(--ritual); }}
-    .marker {{ display: inline-block; width: 22px; height: 16px; margin-right: 8px; vertical-align: -2px; background: var(--bullet-marker); border: 1px solid var(--border); }}
+    .marker {{ display: inline-block; width: 22px; height: 16px; margin-right: 8px; vertical-align: -2px; border: 1px solid var(--border); }}
+    .preview-wisdom .marker {{ background: var(--wisdom-bullet); }}
+    .preview-today .marker {{ background: var(--today-bullet); }}
     .highlight {{ background: var(--highlight); padding: 2px 4px; }}
     .subtabs {{ display: flex; gap: 6px; margin: 0 0 12px; border-bottom: 1px solid #d8c8b3; }}
     .subtab {{ background: transparent; color: #756f65; border: 1px solid transparent; border-bottom: 0; padding: 8px 14px; }}
@@ -383,7 +385,7 @@ SETTINGS_HTML = f"""<!doctype html>
           <div class="preview-card preview-symbol">totem check</div>
           <div class="preview-card preview-quote">Quote card</div>
           <div class="preview-card preview-wisdom"><span class="marker"></span>Wisdom item</div>
-          <div class="preview-card preview-today"><span class="highlight">09:00 standup</span></div>
+          <div class="preview-card preview-today"><span class="marker"></span><span class="highlight">09:00 standup</span></div>
           <div class="preview-card preview-ritual wide">Ritual card</div>
         </div>
       </section>
@@ -617,7 +619,8 @@ SETTINGS_HTML = f"""<!doctype html>
       preview.style.setProperty("--today", colors.today);
       preview.style.setProperty("--ritual", colors.ritual);
       preview.style.setProperty("--totem-panel", colors.totem_panel);
-      preview.style.setProperty("--bullet-marker", colors.bullet_marker);
+      preview.style.setProperty("--wisdom-bullet", colors.wisdom_bullet);
+      preview.style.setProperty("--today-bullet", colors.today_bullet);
       preview.style.setProperty("--highlight", colors.highlight);
       preview.style.setProperty("--border", colors.border);
     }}

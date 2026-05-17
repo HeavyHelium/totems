@@ -46,6 +46,12 @@ def test_settings_html_includes_favicon():
     assert "data:image/svg+xml" in SETTINGS_HTML
 
 
+def test_settings_html_has_per_box_bullet_preview_vars():
+    assert "--wisdom-bullet" in SETTINGS_HTML
+    assert "--today-bullet" in SETTINGS_HTML
+    assert "--bullet-marker" not in SETTINGS_HTML
+
+
 def test_make_settings_server_uses_next_port_when_requested_port_is_busy(tmp_path):
     busy = socket.socket()
     busy.bind(("127.0.0.1", 0))
