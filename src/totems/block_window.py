@@ -348,7 +348,7 @@ class BlockWindow:
             bg=marker_bg,
             width=22,
             height=18,
-            highlightthickness=1,
+            highlightthickness=2,
             highlightbackground=self._palette.border,
             highlightcolor=self._palette.border,
         )

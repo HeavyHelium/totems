@@ -309,7 +309,7 @@ SETTINGS_HTML = f"""<!doctype html>
     .preview-wisdom {{ background: var(--wisdom); }}
     .preview-today {{ background: var(--today); }}
     .preview-ritual {{ background: var(--ritual); }}
-    .marker {{ display: inline-block; width: 22px; height: 16px; margin-right: 8px; vertical-align: -2px; border: 1px solid var(--border); }}
+    .marker {{ display: inline-block; width: 22px; height: 16px; margin-right: 8px; vertical-align: -2px; border: 2px solid var(--border); }}
     .preview-wisdom .marker {{ background: var(--wisdom-bullet); }}
     .preview-today .marker {{ background: var(--today-bullet); }}
     .highlight {{ background: var(--highlight); padding: 2px 4px; }}
